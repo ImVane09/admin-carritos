@@ -1,0 +1,164 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
+
+/* Paleta de colores personalizada */
+:root {
+  /* Colores principales */
+  --primary-main: #144985;
+  --primary-light: #1E88E5;
+  --primary-dark: #0d2d5c;
+  
+  /* Neutros y superficies */
+  --background: #ffffff;
+  --surface: #ffffff;
+  --text-primary: #000000;
+  --text-secondary: #666666;
+  --text-tertiary: #999999;
+  
+  /* Estados */
+  --error: #f83737ff;
+  --error-light: #ffebee;
+  --success: #4caf50;
+  --success-light: #e8f5e9;
+  --warning: #ff9800;
+  --warning-light: #fff3e0;
+  --info: #2196f3;
+  --info-light: #e3f2fd;
+  
+  /* Bordes y separadores */
+  --border-color: #e0e0e0;
+  --border-light: #f0f0f0;
+  --divider: #eeeeee;
+  
+  /* Sombras */
+  --shadow-sm: 0 2px 4px rgba(20, 73, 133, 0.08);
+  --shadow-md: 0 4px 12px rgba(20, 73, 133, 0.12);
+  --shadow-lg: 0 8px 24px rgba(20, 73, 133, 0.16);
+}
+
+/* Sobrescribir temas de PrimeReact */
+.p-component {
+  --primary-color: var(--primary-main);
+  --primary-color-emphasis: var(--primary-light);
+  --text-color: var(--text-primary);
+  --surface-ground: var(--surface);
+  --surface-section: #f5f5f5;
+  --surface-border: var(--border-color);
+}
+
+.p-button-primary {
+  background-color: var(--primary-main) !important;
+  border-color: var(--primary-main) !important;
+}
+
+.p-button-primary:hover {
+  background-color: var(--primary-dark) !important;
+  border-color: var(--primary-dark) !important;
+}
+
+.p-button-secondary {
+  background-color: var(--primary-light) !important;
+  border-color: var(--primary-light) !important;
+}
+
+.p-button-secondary:hover {
+  background-color: var(--primary-main) !important;
+  border-color: var(--primary-main) !important;
+}
+
+/* Cards con colores primarios */
+.p-card {
+  background: var(--surface);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+}
+
+.p-card:hover {
+  box-shadow: var(--shadow-md);
+  transition: box-shadow 0.3s ease;
+}
+
+/* DataTable mejorada */
+.p-datatable {
+  background: var(--surface);
+}
+
+.p-datatable .p-datatable-thead > tr > th {
+  background-color: var(--primary-main);
+  color: white;
+  border-color: var(--primary-main);
+}
+
+.p-datatable .p-datatable-tbody > tr {
+  border-color: var(--border-light);
+}
+
+.p-datatable .p-datatable-tbody > tr:hover {
+  background-color: #f9f9f9;
+}
+
+/* Tags por rol */
+.tag-admin {
+  background-color: var(--error-light) !important;
+  color: var(--error) !important;
+}
+
+.tag-conductor {
+  background-color: var(--info-light) !important;
+  color: var(--info) !important;
+}
+
+.tag-pasajero {
+  background-color: var(--success-light) !important;
+  color: var(--success) !important;
+}
+
+/* Inputs */
+.p-inputtext,
+.p-inputtextarea {
+  border-color: var(--border-color) !important;
+}
+
+.p-inputtext:focus,
+.p-inputtextarea:focus {
+  border-color: var(--primary-main) !important;
+  box-shadow: 0 0 0 0.2rem rgba(20, 73, 133, 0.15) !important;
+}
+
+/* Dialog */
+.p-dialog .p-dialog-header {
+  background-color: var(--primary-main);
+  color: white;
+  border: none;
+}
+
+.p-dialog .p-dialog-header .p-dialog-title {
+  color: white;
+}
+
+/* Progressbar */
+.p-progressbar .p-progressbar-value {
+  background: linear-gradient(to right, var(--primary-light), var(--primary-main));
+}
+
+/* Solución para el solapamiento del icono de búsqueda (lupa) en inputs de PrimeReact */
+.p-input-icon-left {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.p-input-icon-left > i {
+  position: absolute;
+  left: 0.95rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-secondary);
+  z-index: 1;
+  pointer-events: none;
+  font-size: 1rem;
+}
+
+.p-input-icon-left > input,
+.p-input-icon-left > .p-inputtext {
+  padding-left: 2.75rem !important;
+}
