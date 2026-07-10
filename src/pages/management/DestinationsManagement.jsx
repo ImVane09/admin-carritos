@@ -76,39 +76,42 @@ export default function DestinationsManagement() {
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
 
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [totalRecords, setTotalRecords] = useState(0);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedQuery(query);
+      setPage(1);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [query]);
+
   useEffect(() => {
     const load = async () => {
       setLoading(true);
 
       try {
-        const result = await fetchDestinations();
-        const normalized = (result || []).map(normalizeDestination).filter((destination) =>
+        const result = await fetchDestinations({ per_page: 10, page, search: debouncedQuery });
+        const dataArray = result?.data || [];
+        const normalized = dataArray.map(normalizeDestination).filter((destination) =>
           Number.isFinite(destination.latitude) && Number.isFinite(destination.longitude)
         );
 
-        setDestinations(normalized.length ? normalized : LOCAL_DESTINATIONS);
-      } catch {
-        setDestinations(LOCAL_DESTINATIONS);
+        setDestinations(normalized);
+        setTotalRecords(result?.total || 0);
+      } catch (err) {
+        console.error('Error al cargar destinos:', err);
+        setDestinations([]);
+        setTotalRecords(0);
       } finally {
         setLoading(false);
       }
     };
 
     load();
-  }, []);
-
-  const filtered = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
-
-    return destinations.filter((destination) => {
-      const text = [destination.name, destination.description, destination.latitude, destination.longitude]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase();
-
-      return text.includes(normalizedQuery);
-    });
-  }, [destinations, query]);
+  }, [page, debouncedQuery]);
 
   const openCreate = () => {
     setForm({
@@ -260,7 +263,7 @@ export default function DestinationsManagement() {
 
         <Card className="management-table">
           <div className="management-toolbar">
-            <h3>Lista de Destinos ({filtered.length})</h3>
+            <h3>Lista de Destinos ({totalRecords})</h3>
             <div className="management-toolbar-actions">
               <span className="p-input-icon-left">
                 <i className="pi pi-search" />
@@ -274,7 +277,19 @@ export default function DestinationsManagement() {
             </div>
           </div>
 
-          <DataTable value={filtered} paginator rows={10} loading={loading} responsiveLayout="scroll" stripedRows emptyMessage="No hay destinos registrados">
+          <DataTable 
+            value={destinations} 
+            lazy
+            paginator 
+            first={(page - 1) * 10}
+            rows={10} 
+            totalRecords={totalRecords}
+            onPage={(e) => setPage(e.page + 1)}
+            loading={loading} 
+            responsiveLayout="scroll" 
+            stripedRows 
+            emptyMessage="No hay destinos registrados"
+          >
             <Column field="name" header="Nombre" sortable />
             <Column field="description" header="Descripción" body={(row) => row.description || 'Sin descripción'} />
             <Column header="Latitud" body={(row) => formatCoordinate(row.latitude)} />

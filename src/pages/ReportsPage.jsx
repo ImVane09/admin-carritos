@@ -8,18 +8,24 @@ import { Button } from 'primereact/button';
 import { Tag } from 'primereact/tag';
 import { ProgressSpinner } from 'primereact/progressspinner';
 import { Dialog } from 'primereact/dialog';
-import { fetchReportsAllSummary } from '../services/adminService';
+import { fetchReportsAllSummary, fetchReportsDriversSummary } from '../services/adminService';
 
 export default function ReportsPage() {
   const [loading, setLoading] = useState(true);
+  const [driversLoading, setDriversLoading] = useState(false);
   const [drivers, setDrivers] = useState([]);
+  const [allDriversForKpis, setAllDriversForKpis] = useState([]);
   const [destinations, setDestinations] = useState([]);
   const [hourly, setHourly] = useState([]);
   const [daily, setDaily] = useState([]);
   const [ratings, setRatings] = useState({ distribution: [], comments: [] });
   const [routes, setRoutes] = useState([]);
   const [stats, setStats] = useState({ trips: 0, completed: 0 });
+  
   const [globalFilter, setGlobalFilter] = useState('');
+  const [debouncedGlobalFilter, setDebouncedGlobalFilter] = useState('');
+  const [driversPage, setDriversPage] = useState(1);
+  const [driversTotal, setDriversTotal] = useState(0);
   
   // Detalle de conductor seleccionado para el modal
   const [selectedDriver, setSelectedDriver] = useState(null);
@@ -27,19 +33,36 @@ export default function ReportsPage() {
 
   const dt = useRef(null);
 
+  const fetchPaginatedDrivers = async (pageVal, searchVal) => {
+    setDriversLoading(true);
+    try {
+      const result = await fetchReportsDriversSummary({ per_page: 5, page: pageVal, search: searchVal });
+      setDrivers(result?.data || []);
+      setDriversTotal(result?.total || 0);
+    } catch (error) {
+      console.error('Error al cargar conductores paginados:', error);
+    } finally {
+      setDriversLoading(false);
+    }
+  };
+
   const loadData = async (showSpinner = false) => {
     if (showSpinner) {
       setLoading(true);
     }
     try {
       const data = await fetchReportsAllSummary();
-      setDrivers(data.drivers || []);
+      setAllDriversForKpis(data.drivers || []);
       setDestinations(data.destinations || []);
       setHourly(data.hourly || []);
       setDaily(data.daily || []);
       setRatings(data.ratings || { distribution: [], comments: [] });
       setRoutes(data.routes || []);
       setStats(data.stats || { trips: 0, completed: 0 });
+      
+      // Cargar página inicial de conductores
+      await fetchPaginatedDrivers(1, '');
+      setDriversPage(1);
     } catch (error) {
       console.error('Error al cargar datos del reporte:', error);
     } finally {
@@ -48,9 +71,22 @@ export default function ReportsPage() {
   };
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadData(false);
   }, []);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedGlobalFilter(globalFilter);
+      setDriversPage(1);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [globalFilter]);
+
+  useEffect(() => {
+    if (!loading) {
+      fetchPaginatedDrivers(driversPage, debouncedGlobalFilter);
+    }
+  }, [driversPage, debouncedGlobalFilter]);
 
   // --- Computar Estadísticas Generales (KPIs) ---
   const totalCompletedTrips = useMemo(() => {
@@ -58,15 +94,15 @@ export default function ReportsPage() {
   }, [stats]);
 
   const totalPassengers = useMemo(() => {
-    return drivers.reduce((sum, d) => sum + parseInt(d.total_passengers || 0), 0);
-  }, [drivers]);
+    return allDriversForKpis.reduce((sum, d) => sum + parseInt(d.total_passengers || 0), 0);
+  }, [allDriversForKpis]);
 
   const averageSystemScore = useMemo(() => {
-    const ratedDrivers = drivers.filter(d => d.rating_count > 0);
+    const ratedDrivers = allDriversForKpis.filter(d => d.rating_count > 0);
     if (ratedDrivers.length === 0) return 5.0;
     const sum = ratedDrivers.reduce((acc, d) => acc + parseFloat(d.score || 0), 0);
     return (sum / ratedDrivers.length).toFixed(2);
-  }, [drivers]);
+  }, [allDriversForKpis]);
 
   const operationalEfficiency = useMemo(() => {
     const total = stats.trips || 0;
@@ -76,8 +112,8 @@ export default function ReportsPage() {
   }, [stats]);
 
   const totalCanceledTrips = useMemo(() => {
-    return drivers.reduce((sum, d) => sum + parseInt(d.canceled_trips || 0), 0);
-  }, [drivers]);
+    return allDriversForKpis.reduce((sum, d) => sum + parseInt(d.canceled_trips || 0), 0);
+  }, [allDriversForKpis]);
 
 
   // --- Exportar Tabla a CSV (Optimizado para Excel en Español) ---
@@ -121,20 +157,20 @@ export default function ReportsPage() {
     document.body.removeChild(link);
   };
 
-  // --- Configuración Gráfico 1: Demanda Horaria de Pasajeros ---
+  // --- Configuración Gráfico 1: Demanda Horaria de Pasajeros (Horas Activas 7 AM a 10 PM) ---
   const lineChartData = useMemo(() => {
-    const hours24 = Array.from({ length: 24 }, (_, i) => i);
-    const hourlyCounts = hours24.map(h => {
+    const activeHours = Array.from({ length: 16 }, (_, i) => i + 7); // 7 to 22
+    const hourlyCounts = activeHours.map(h => {
       const match = hourly.find(item => item.hour === h);
       return match ? match.count : 0;
     });
-    const passengersCounts = hours24.map(h => {
+    const passengersCounts = activeHours.map(h => {
       const match = hourly.find(item => item.hour === h);
       return match ? match.passengers_count : 0;
     });
 
     return {
-      labels: hours24.map(h => `${String(h).padStart(2, '0')}:00`),
+      labels: activeHours.map(h => `${String(h).padStart(2, '0')}:00`),
       datasets: [
         {
           label: 'Viajes Completados',
@@ -167,12 +203,7 @@ export default function ReportsPage() {
     maintainAspectRatio: false,
     plugins: {
       legend: {
-        display: true,
-        position: 'top',
-        labels: {
-          color: '#334155',
-          font: { family: 'Outfit, sans-serif', size: 12, weight: 600 }
-        }
+        display: false
       },
       tooltip: {
         mode: 'index',
@@ -204,89 +235,176 @@ export default function ReportsPage() {
     }
   };
 
-  // --- Configuración Gráfico 2: Nivel de Ocupación por Unidad (Bar Chart) ---
+  // --- Configuración Gráfico 2: Rendimiento de Conductores (Completados vs Cancelados) ---
   const occupancyChartData = useMemo(() => {
-    const labels = drivers.map(d => d.name);
-    const occupancyPercent = drivers.map(d => {
-      const avg = parseFloat(d.avg_passengers || 0);
-      return ((avg / 4) * 100).toFixed(1);
-    });
+    const labels = drivers.map(d => d.name || 'Conductor');
+    const completedTrips = drivers.map(d => parseInt(d.completed_trips || 0));
+    const canceledTrips = drivers.map(d => parseInt(d.canceled_trips || 0));
 
     return {
       labels: labels,
       datasets: [
         {
-          label: 'Ocupación Promedio',
-          data: occupancyPercent,
-          backgroundColor: 'rgba(30, 136, 229, 0.75)',
+          label: 'Viajes Completados',
+          data: completedTrips,
+          backgroundColor: 'rgba(30, 136, 229, 0.85)',
           borderColor: '#1E88E5',
           borderWidth: 1,
-          borderRadius: 8,
-          barThickness: 20
+          borderRadius: 6,
+        },
+        {
+          label: 'Viajes Cancelados',
+          data: canceledTrips,
+          backgroundColor: 'rgba(239, 68, 68, 0.85)',
+          borderColor: '#ef4444',
+          borderWidth: 1,
+          borderRadius: 6,
         }
       ]
     };
   }, [drivers]);
 
   const occupancyChartOptions = {
-    indexAxis: 'y',
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
       legend: {
-        display: false
+        display: true,
+        position: 'top',
+        labels: {
+          color: '#334155',
+          font: { family: 'Outfit, sans-serif', weight: 600 }
+        }
       },
+      tooltip: {
+        mode: 'index',
+        intersect: false,
+        padding: 10,
+        cornerRadius: 6
+      }
+    },
+    scales: {
+      x: {
+        grid: {
+          display: false
+        },
+        ticks: {
+          color: '#334155',
+          font: { family: 'Outfit, sans-serif', weight: 600 }
+        }
+      },
+      y: {
+        grid: {
+          color: '#f1f5f9'
+        },
+        ticks: {
+          color: '#64748b',
+          font: { family: 'Outfit, sans-serif' }
+        }
+      }
+    }
+  };
+
+  // --- Gráfico Adicional: Calificación Promedio por Conductor (Amber Vertical Bars) ---
+  const ratingsBarChartData = useMemo(() => {
+    const labels = allDriversForKpis.map(d => d.name || 'Conductor');
+    const scores = allDriversForKpis.map(d => parseFloat(d.score || 0));
+
+    return {
+      labels: labels,
+      datasets: [
+        {
+          label: 'Calificación Promedio',
+          data: scores,
+          backgroundColor: 'rgba(251, 191, 36, 0.85)', // Amber yellow
+          borderColor: '#fbbf24',
+          borderWidth: 1,
+          borderRadius: 6,
+        }
+      ]
+    };
+  }, [allDriversForKpis]);
+
+  const ratingsBarChartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
       tooltip: {
         callbacks: {
           label: function(context) {
-            return `Ocupación: ${context.parsed.x}% de capacidad (Máx. 4 pas.)`;
+            return `Calificación: ${context.parsed.y.toFixed(1)} ★`;
           }
         }
       }
     },
     scales: {
       x: {
-        min: 0,
-        max: 100,
-        ticks: {
-          color: '#64748b',
-          font: { family: 'Outfit, sans-serif' },
-          callback: function(value) {
-            return value + '%';
-          }
-        },
-        grid: {
-          color: '#f1f5f9'
-        }
-      },
-      y: {
+        grid: { display: false },
         ticks: {
           color: '#334155',
           font: { family: 'Outfit, sans-serif', weight: 600 }
-        },
-        grid: {
-          display: false
+        }
+      },
+      y: {
+        min: 0,
+        max: 5,
+        grid: { color: '#f1f5f9' },
+        ticks: {
+          color: '#64748b',
+          font: { family: 'Outfit, sans-serif' }
         }
       }
     }
   };
 
-  // --- Configuración Gráfico 3: Demanda de Viajes por Día (Line/Bar Chart) ---
-  const dailyChartData = useMemo(() => {
-    const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
-    const counts = [1, 2, 3, 4, 5, 6, 7].map(d => {
-      const match = daily.find(item => item.day_of_week === d);
-      return match ? match.count : 0;
-    });
+  // --- Gráfico Adicional: Distribución de Carga Operativa (Doughnut Chart) ---
+  const workDistributionChartData = useMemo(() => {
+    const labels = allDriversForKpis.map(d => d.name || 'Conductor');
+    const tripCounts = allDriversForKpis.map(d => parseInt(d.completed_trips || 0));
 
     return {
-      labels: days,
+      labels: labels,
+      datasets: [
+        {
+          data: tripCounts,
+          backgroundColor: [
+            '#144985',
+            '#1E88E5',
+            '#0288D1',
+            '#00ACC1',
+            '#26A69A',
+            '#43A047',
+            '#7CB342',
+            '#AFB42B',
+            '#FDD835',
+            '#FFB300',
+          ],
+          borderWidth: 2,
+          borderColor: '#ffffff'
+        }
+      ]
+    };
+  }, [allDriversForKpis]);
+
+  // --- Configuración Gráfico 3: Demanda de Viajes por Día (Line/Bar Chart por Fechas de los últimos 15 días) ---
+  const dailyChartData = useMemo(() => {
+    const labels = daily.map(item => {
+      if (!item.date) return '—';
+      const dateObj = new Date(item.date);
+      // Formatear fecha como DD/MM/YYYY
+      return dateObj.toLocaleDateString(undefined, { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' });
+    });
+    const counts = daily.map(item => item.count);
+
+    return {
+      labels: labels,
       datasets: [
         {
           label: 'Viajes Finalizados',
           data: counts,
           borderColor: '#6366f1',
-          backgroundColor: 'rgba(99, 102, 241, 0.12)',
+          backgroundColor: 'rgba(99, 102, 241, 0.08)',
           fill: true,
           tension: 0.3,
           pointBackgroundColor: '#4f46e5',
@@ -532,43 +650,43 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      {/* Fila de Gráficos Principales: Demanda Horaria y Ocupación */}
+      {/* Nueva Fila: Gráfico de Demanda Diaria */}
+      <Card style={{ borderRadius: '1.25rem', border: '1px solid var(--border-color)', padding: '0.75rem 0.5rem', boxShadow: '0 4px 20px rgba(0,0,0,0.01)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+          <div>
+            <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--primary-main)', margin: 0 }}>
+              Viajes Realizados
+            </h3>
+            <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Cantidad de viajes completados por día</span>
+          </div>
+          <i className="pi pi-calendar" style={{ fontSize: '1.25rem', color: '#6366f1' }} />
+        </div>
+        <div style={{ height: '260px', position: 'relative' }}>
+          {loading ? (
+            <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <ProgressSpinner style={{ width: '30px', height: '30px' }} strokeWidth="4" />
+            </div>
+          ) : daily.length > 0 ? (
+            <Chart type="line" data={dailyChartData} options={lineChartOptions} style={{ height: '100%' }} />
+          ) : (
+            <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>
+              No hay datos de viajes finalizados en los últimos 15 días.
+            </div>
+          )}
+        </div>
+      </Card>
+
+      {/* Primera Fila de Gráficos: Rendimiento de Conductores y Paradas Top */}
       <div className="dashboard-monitor-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '1.25rem' }}>
         
-        {/* Gráfico 1: Curva de Demanda Horaria */}
+        {/* Gráfico 1: Rendimiento de Conductores (Completados vs Cancelados) */}
         <Card style={{ borderRadius: '1.25rem', border: '1px solid var(--border-color)', padding: '0.75rem 0.5rem', boxShadow: '0 4px 20px rgba(0,0,0,0.01)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
             <div>
               <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--primary-main)', margin: 0 }}>
-                Curva de Demanda Horaria (Pasajeros vs Viajes)
+                Rendimiento de Conductores (Viajes Completados vs Cancelados)
               </h3>
-              <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Pasajeros movilizados y cantidad de viajes por horas de operación</span>
-            </div>
-            <i className="pi pi-clock" style={{ fontSize: '1.25rem', color: 'var(--primary-light)' }} />
-          </div>
-          <div style={{ height: '280px', position: 'relative' }}>
-            {loading ? (
-              <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <ProgressSpinner style={{ width: '30px', height: '30px' }} strokeWidth="4" />
-              </div>
-            ) : hourly.length > 0 ? (
-              <Chart type="line" data={lineChartData} options={lineChartOptions} style={{ height: '100%' }} />
-            ) : (
-              <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>
-                No hay suficientes datos de viajes registrados hoy.
-              </div>
-            )}
-          </div>
-        </Card>
-
-        {/* Gráfico 2: Nivel de Ocupación Promedio de Carritos */}
-        <Card style={{ borderRadius: '1.25rem', border: '1px solid var(--border-color)', padding: '0.75rem 0.5rem', boxShadow: '0 4px 20px rgba(0,0,0,0.01)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-            <div>
-              <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--primary-main)', margin: 0 }}>
-                Nivel de Ocupación Promedio por Unidad
-              </h3>
-              <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Capacidad promedio utilizada por carrito (% de un máximo de 4 pasajeros)</span>
+              <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Comparativa de viajes finalizados con éxito contra solicitudes canceladas</span>
             </div>
             <i className="pi pi-car" style={{ fontSize: '1.25rem', color: '#10b981' }} />
           </div>
@@ -586,45 +704,15 @@ export default function ReportsPage() {
             )}
           </div>
         </Card>
-      </div>
 
-      {/* Fila de Gráficos Secundarios: Demanda Diaria y Destinos */}
-      <div className="dashboard-monitor-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '1.25rem' }}>
-        
-        {/* Gráfico 3: Demanda de Viajes por Día de la Semana */}
+        {/* Gráfico 2: Destinos más Utilizados */}
         <Card style={{ borderRadius: '1.25rem', border: '1px solid var(--border-color)', padding: '0.75rem 0.5rem', boxShadow: '0 4px 20px rgba(0,0,0,0.01)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
             <div>
               <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--primary-main)', margin: 0 }}>
-                Demanda de Viajes por Día de la Semana
+                Top 5 Paradas Más Solicitadas (Destinos)
               </h3>
-              <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Comportamiento histórico de trayectos de lunes a domingo</span>
-            </div>
-            <i className="pi pi-calendar" style={{ fontSize: '1.25rem', color: '#6366f1' }} />
-          </div>
-          <div style={{ height: '280px', position: 'relative' }}>
-            {loading ? (
-              <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <ProgressSpinner style={{ width: '30px', height: '30px' }} strokeWidth="4" />
-              </div>
-            ) : daily.length > 0 ? (
-              <Chart type="line" data={dailyChartData} options={lineChartOptions} style={{ height: '100%' }} />
-            ) : (
-              <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>
-                No hay datos de viajes históricos en la base de datos.
-              </div>
-            )}
-          </div>
-        </Card>
-
-        {/* Gráfico 4: Destinos más Utilizados */}
-        <Card style={{ borderRadius: '1.25rem', border: '1px solid var(--border-color)', padding: '0.75rem 0.5rem', boxShadow: '0 4px 20px rgba(0,0,0,0.01)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-            <div>
-              <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--primary-main)', margin: 0 }}>
-                Top Paradas Más Solicitadas (Destinos)
-              </h3>
-              <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Paradas de mayor afluencia en el campus y porcentaje de uso</span>
+              <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Las 5 paradas de mayor afluencia en el campus y porcentaje de uso</span>
             </div>
             <i className="pi pi-map-marker" style={{ fontSize: '1.25rem', color: '#00acc1' }} />
           </div>
@@ -644,117 +732,67 @@ export default function ReportsPage() {
         </Card>
       </div>
 
-      {/* Fila de Gráficos de Satisfacción y Feedback de Estudiantes */}
+      {/* Segunda Fila de Gráficos: Distribución de Trabajo y Tiempos de Ruta */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '1.25rem' }}>
         
-        {/* Distribución de Estrellas */}
+        {/* Distribución de Carga Operativa */}
         <Card style={{ borderRadius: '1.25rem', border: '1px solid var(--border-color)', padding: '0.75rem 0.5rem' }}>
           <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--primary-main)', marginBottom: '0.25rem' }}>
-            ⭐ Distribución de Calificaciones
+            📊 Distribución de Trabajo por Conductor
           </h3>
           <span style={{ fontSize: '0.8rem', color: '#64748b', display: 'block', marginBottom: '1.25rem' }}>
-            Porcentaje de valoraciones recibidas de 1 a 5 estrellas
+            Porcentaje de viajes completados por conductor sobre la actividad total
           </span>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', height: '240px', justifyContent: 'center' }}>
+          <div style={{ height: '240px', position: 'relative' }}>
             {loading ? (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
                 <ProgressSpinner style={{ width: '30px', height: '30px' }} strokeWidth="4" />
               </div>
+            ) : allDriversForKpis.length > 0 ? (
+              <Chart type="doughnut" data={workDistributionChartData} options={doughnutChartOptions} style={{ height: '100%' }} />
             ) : (
-              <>
-                {[5, 4, 3, 2, 1].map(stars => (
-                  <div key={stars} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <span style={{ width: '45px', fontSize: '0.85rem', fontWeight: 700, color: '#334155', textAlign: 'right' }}>
-                      {stars} ★
-                    </span>
-                    <div style={{ flex: 1, backgroundColor: '#f1f5f9', height: '10px', borderRadius: '999px', overflow: 'hidden' }}>
-                      <div style={{ 
-                        backgroundColor: stars >= 4 ? '#10b981' : stars === 3 ? '#fbbf24' : '#ef4444', 
-                        width: `${starStats.percentages[stars]}%`, 
-                        height: '100%',
-                        borderRadius: '999px'
-                      }} />
-                    </div>
-                    <span style={{ width: '35px', fontSize: '0.85rem', color: '#64748b', fontWeight: 600 }}>
-                      {starStats.percentages[stars]}%
-                    </span>
-                  </div>
-                ))}
-                <div style={{ borderTop: '1px dashed #e2e8f0', paddingTop: '0.75rem', textAlign: 'center', fontSize: '0.85rem', color: '#64748b' }}>
-                  Total de valoraciones: <strong>{starStats.total}</strong>
-                </div>
-              </>
+              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: '#94a3b8', fontSize: '0.85rem' }}>
+                No hay datos operativos registrados.
+              </div>
             )}
           </div>
         </Card>
 
-        {/* Comentarios y Feedback Reciente */}
+        {/* Tiempos Promedio de Viaje por Ruta */}
         <Card style={{ borderRadius: '1.25rem', border: '1px solid var(--border-color)', padding: '0.75rem 0.5rem' }}>
           <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--primary-main)', marginBottom: '0.25rem' }}>
-            💬 Comentarios Recientes de Estudiantes
+            ⏱️ Tiempos Promedio de Viaje por Ruta
           </h3>
           <span style={{ fontSize: '0.8rem', color: '#64748b', display: 'block', marginBottom: '1.25rem' }}>
-            Últimas opiniones registradas tras la finalización de carreras
+            Duración media en minutos de los trayectos completados más habituales del campus.
           </span>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', height: '240px', overflowY: 'auto', paddingRight: '0.25rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', height: '240px', overflowY: 'auto', paddingRight: '0.25rem' }}>
             {loading ? (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
                 <ProgressSpinner style={{ width: '30px', height: '30px' }} strokeWidth="4" />
               </div>
-            ) : ratings.comments && ratings.comments.length > 0 ? (
-              ratings.comments.map((c, i) => (
-                <div key={i} style={{ borderBottom: '1px solid #f1f5f9', paddingBottom: '0.75rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-                    <strong style={{ fontSize: '0.85rem', color: 'var(--primary-main)' }}>{c.passenger_name}</strong>
-                    <span style={{ fontSize: '0.75rem', color: '#fbbf24', fontWeight: 700 }}>{c.rating} ★</span>
+            ) : routes.length > 0 ? (
+              routes.map((r, i) => (
+                <div key={i} style={{ backgroundColor: '#fafcff', border: '1px solid #e2e8f0', borderRadius: '1rem', padding: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                    <span style={{ fontSize: '0.75rem', color: '#334155' }}>Desde: <strong>{r.origin_address}</strong></span>
+                    <span style={{ fontSize: '0.75rem', color: '#334155' }}>Hacia: <strong>{r.destination_address}</strong></span>
+                    <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>({r.count} viajes completados)</span>
                   </div>
-                  <p style={{ margin: 0, fontSize: '0.8rem', color: '#475569', fontStyle: 'italic' }}>"{c.comment}"</p>
-                  <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>{new Date(c.created_at).toLocaleDateString()}</span>
+                  <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                    <span style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--primary-main)' }}>{r.avg_duration_minutes}</span>
+                    <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600 }}>minutos</span>
+                  </div>
                 </div>
               ))
             ) : (
-              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: '#94a3b8', fontSize: '0.85rem' }}>
-                No hay comentarios registrados en el sistema.
+              <div style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8', fontSize: '0.85rem' }}>
+                No se registran datos suficientes sobre rutas completadas en la base de datos.
               </div>
             )}
           </div>
         </Card>
       </div>
-
-      {/* Tiempos Promedio de Viaje por Ruta */}
-      <Card style={{ borderRadius: '1.25rem', border: '1px solid var(--border-color)', padding: '0.75rem 0.5rem' }}>
-        <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--primary-main)', marginBottom: '0.25rem' }}>
-          ⏱️ Tiempos Promedio de Viaje por Ruta
-        </h3>
-        <span style={{ fontSize: '0.8rem', color: '#64748b', display: 'block', marginBottom: '1.25rem' }}>
-          Duración media en minutos de los trayectos completados más habituales del campus.
-        </span>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
-          {loading ? (
-            <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '2rem' }}>
-              <ProgressSpinner style={{ width: '30px', height: '30px' }} strokeWidth="4" />
-            </div>
-          ) : routes.length > 0 ? (
-            routes.map((r, i) => (
-              <div key={i} style={{ backgroundColor: '#fafcff', border: '1px solid #e2e8f0', borderRadius: '1rem', padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                  <span style={{ fontSize: '0.75rem', color: '#334155' }}>Desde: <strong>{r.origin_address}</strong></span>
-                  <span style={{ fontSize: '0.75rem', color: '#334155' }}>Hacia: <strong>{r.destination_address}</strong></span>
-                  <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>({r.count} viajes completados)</span>
-                </div>
-                <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                  <span style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary-main)' }}>{r.avg_duration_minutes}</span>
-                  <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600 }}>minutos</span>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '2rem', color: '#94a3b8', fontSize: '0.85rem' }}>
-              No se registran datos suficientes sobre rutas completadas en la base de datos.
-            </div>
-          )}
-        </div>
-      </Card>
 
       {/* Leaderboard DataTable de Conductores */}
       <Card style={{ borderRadius: '1.25rem', border: '1px solid var(--border-color)', padding: '0.75rem 0.5rem', boxShadow: '0 4px 20px rgba(0,0,0,0.01)' }}>
@@ -774,7 +812,6 @@ export default function ReportsPage() {
                 value={globalFilter} 
                 onChange={(e) => setGlobalFilter(e.target.value)} 
                 placeholder="Buscar Conductor..." 
-                style={{ borderRadius: '999px', fontSize: '0.85rem', padding: '0.5rem 1rem 0.5rem 2.2rem' }}
               />
             </span>
             <Button 
@@ -782,7 +819,6 @@ export default function ReportsPage() {
               icon="pi pi-file-excel" 
               onClick={exportCSV} 
               className="p-button-outlined" 
-              style={{ borderRadius: '999px', fontSize: '0.85rem', padding: '0.5rem 1rem' }}
             />
           </div>
         </div>
@@ -791,15 +827,17 @@ export default function ReportsPage() {
         <DataTable 
           ref={dt}
           value={drivers} 
+          lazy
           paginator 
+          first={(driversPage - 1) * 5}
           rows={5} 
-          rowsPerPageOptions={[5, 10, 20]}
-          globalFilter={globalFilter}
+          totalRecords={driversTotal}
+          onPage={(e) => setDriversPage(e.page + 1)}
           emptyMessage="No se encontraron conductores registrados en el sistema."
           rowHover
           className="p-datatable-sm"
           tableStyle={{ minWidth: '60rem' }}
-          loading={loading}
+          loading={driversLoading}
         >
           <Column field="name" header="Conductor" body={driverNameTemplate} sortable style={{ width: '25%' }} />
           <Column field="completed_trips" header="Carreras Finalizadas" sortable style={{ textAlign: 'center', width: '12%' }} />

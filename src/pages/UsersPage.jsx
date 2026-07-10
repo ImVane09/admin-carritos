@@ -15,39 +15,41 @@ export default function UsersPage() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [totalRecords, setTotalRecords] = useState(0);
   const [selectedUser, setSelectedUser] = useState(null);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedQuery(searchQuery);
+      setPage(1);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
 
   useEffect(() => {
     const load = async () => {
       setLoading(true);
       try {
-        const data = await fetchUsers();
-        // Mapear los roles en minúsculas para mantener consistencia
-        const parsed = data.map(u => ({
+        const result = await fetchUsers({ per_page: 10, page, search: debouncedQuery });
+        const dataArray = result?.data || [];
+        const parsed = dataArray.map(u => ({
           ...u,
           role: (u.role || u.rol?.rol_name || 'pasajero').toLowerCase()
         }));
         setUsers(parsed);
+        setTotalRecords(result?.total || 0);
       } catch (error) {
         console.error('Error al cargar usuarios:', error);
         setUsers([]);
+        setTotalRecords(0);
       } finally {
         setLoading(false);
       }
     };
     load();
-  }, []);
-
-  const filteredUsers = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-    if (!query) return users;
-    return users.filter(
-      (u) =>
-        u.name?.toLowerCase().includes(query) ||
-        u.email?.toLowerCase().includes(query) ||
-        u.role?.toLowerCase().includes(query)
-    );
-  }, [users, searchQuery]);
+  }, [page, debouncedQuery]);
 
   const roleBodyTemplate = (row) => {
     const role = row.role?.toLowerCase() || 'pasajero';
@@ -145,7 +147,7 @@ export default function UsersPage() {
 
       <Card className="management-table">
         <div className="users-toolbar">
-          <h2>Lista de Usuarios ({filteredUsers.length})</h2>
+          <h2>Lista de Usuarios ({totalRecords})</h2>
           <div className="management-toolbar-actions">
             <span className="p-input-icon-left">
               <i className="pi pi-search" />
@@ -160,9 +162,13 @@ export default function UsersPage() {
         </div>
 
         <DataTable
-          value={filteredUsers}
+          value={users}
+          lazy
           paginator
+          first={(page - 1) * 10}
           rows={10}
+          totalRecords={totalRecords}
+          onPage={(e) => setPage(e.page + 1)}
           stripedRows
           responsiveLayout="scroll"
           emptyMessage="No se encontraron usuarios"

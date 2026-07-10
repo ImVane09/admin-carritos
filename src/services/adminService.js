@@ -1,14 +1,14 @@
 import { api } from '../config/api';
 
 // --- Lecturas iniciales ---
-export async function fetchUsers() {
-  const { data } = await api.get('/users');
-  return Array.isArray(data) ? data : data?.data || [];
+export async function fetchUsers(params = {}) {
+  const { data } = await api.get('/users', { params });
+  return data;
 }
 
-export async function fetchTrips() {
-  const { data } = await api.get('/trips');
-  return Array.isArray(data) ? data : data?.data || [];
+export async function fetchTrips(params = {}) {
+  const { data } = await api.get('/trips', { params });
+  return data;
 }
 
 export async function fetchDrivers() {
@@ -16,9 +16,9 @@ export async function fetchDrivers() {
   return Array.isArray(data) ? data : data?.data || [];
 }
 
-export async function fetchDestinations() {
-  const { data } = await api.get('/destinations');
-  return Array.isArray(data) ? data : data?.data || [];
+export async function fetchDestinations(params = {}) {
+  const { data } = await api.get('/destinations', { params });
+  return data;
 }
 
 // --- CRUD de Usuarios (Conductores, Pasajeros, Admins) ---
@@ -29,6 +29,14 @@ export async function fetchDestinations() {
  */
 export async function createUserDriver(payload) {
   const { data } = await api.post('/users/drivers', payload);
+  return data;
+}
+
+/**
+ * Crea un nuevo administrador en el backend
+ */
+export async function createUserAdmin(payload) {
+  const { data } = await api.post('/users/admins', payload);
   return data;
 }
 
@@ -181,5 +189,10 @@ export async function fetchRoutesPerformanceReport() {
  */
 export async function fetchReportsAllSummary() {
   const { data } = await api.get('/reports/all-summary');
+  return data;
+}
+
+export async function fetchReportsDriversSummary(params = {}) {
+  const { data } = await api.get('/reports/drivers-summary', { params });
   return data;
 }

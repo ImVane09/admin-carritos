@@ -16,6 +16,9 @@ export default function PassengersManagement() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [totalRecords, setTotalRecords] = useState(0);
   const [selected, setSelected] = useState(null);
   const [editing, setEditing] = useState(null);
   const [editForm, setEditForm] = useState({});
@@ -24,12 +27,20 @@ export default function PassengersManagement() {
   const [createForm, setCreateForm] = useState({ name: '', email: '', password: '', is_active: true });
 
   useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedQuery(query);
+      setPage(1);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [query]);
+
+  useEffect(() => {
     const load = async () => {
       setLoading(true);
       try {
-        const result = await fetchUsers();
-        const passengers = result.filter(u => (u.role || u.rol?.rol_name || 'pasajero').toLowerCase() === 'pasajero');
-        setUsers(passengers);
+        const result = await fetchUsers({ role_name: 'pasajero', per_page: 10, page, search: debouncedQuery });
+        setUsers(result?.data || []);
+        setTotalRecords(result?.total || 0);
       } catch (err) {
         console.error('Error al cargar pasajeros:', err);
         toast.current?.show({
@@ -38,18 +49,13 @@ export default function PassengersManagement() {
           detail: 'No se pudieron cargar los pasajeros desde el servidor.'
         });
         setUsers([]);
+        setTotalRecords(0);
       } finally {
         setLoading(false);
       }
     };
     load();
-  }, []);
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return users;
-    return users.filter((u) => `${u.name} ${u.email}`.toLowerCase().includes(q));
-  }, [users, query]);
+  }, [page, debouncedQuery]);
 
   const statusBody = (row) => {
     if (row.deleted_at) {
@@ -202,7 +208,7 @@ export default function PassengersManagement() {
 
       <Card className="management-table">
         <div className="management-toolbar">
-          <h3>Lista de Pasajeros ({filtered.length})</h3>
+          <h3>Lista de Pasajeros ({totalRecords})</h3>
           <div className="management-toolbar-actions">
             <span className="p-input-icon-left">
               <i className="pi pi-search" />
@@ -217,9 +223,13 @@ export default function PassengersManagement() {
         </div>
 
         <DataTable 
-          value={filtered} 
+          value={users} 
+          lazy
           paginator 
+          first={(page - 1) * 10}
           rows={10} 
+          totalRecords={totalRecords}
+          onPage={(e) => setPage(e.page + 1)}
           loading={loading} 
           stripedRows 
           responsiveLayout="scroll"

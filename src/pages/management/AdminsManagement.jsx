@@ -7,7 +7,7 @@ import { Dialog } from 'primereact/dialog';
 import { InputText } from 'primereact/inputtext';
 import { InputSwitch } from 'primereact/inputswitch';
 import { Toast } from 'primereact/toast';
-import { fetchUsers, updateUser, deleteUser, toggleUserStatus, restoreUser } from '../../services/adminService';
+import { fetchUsers, createUserAdmin, updateUser, deleteUser, toggleUserStatus, restoreUser } from '../../services/adminService';
 import { ProgressSpinner } from 'primereact/progressspinner';
 import { useRef } from 'react';
 
@@ -20,14 +20,28 @@ export default function AdminsManagement() {
   const [editing, setEditing] = useState(null);
   const [editForm, setEditForm] = useState({});
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [creating, setCreating] = useState(false);
+  const [createForm, setCreateForm] = useState({ name: '', email: '', password: '', is_active: true });
+
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [totalRecords, setTotalRecords] = useState(0);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedQuery(query);
+      setPage(1);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [query]);
 
   useEffect(() => {
     const load = async () => {
       setLoading(true);
       try {
-        const result = await fetchUsers();
-        const admins = result.filter(u => (u.role || u.rol?.rol_name || 'pasajero').toLowerCase() === 'admin');
-        setUsers(admins);
+        const result = await fetchUsers({ role_name: 'admin', per_page: 10, page, search: debouncedQuery });
+        setUsers(result?.data || []);
+        setTotalRecords(result?.total || 0);
       } catch (err) {
         console.error('Error al cargar administradores:', err);
         toast.current?.show({
@@ -36,18 +50,13 @@ export default function AdminsManagement() {
           detail: 'No se pudieron cargar los administradores desde el servidor.'
         });
         setUsers([]);
+        setTotalRecords(0);
       } finally {
         setLoading(false);
       }
     };
     load();
-  }, []);
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return users;
-    return users.filter((u) => `${u.name} ${u.email}`.toLowerCase().includes(q));
-  }, [users, query]);
+  }, [page, debouncedQuery]);
 
   const statusBody = (row) => {
     if (row.deleted_at) {
@@ -143,11 +152,44 @@ export default function AdminsManagement() {
   };
 
   const handleCreate = () => {
-    toast.current?.show({ 
-      severity: 'warn', 
-      summary: 'Acceso Restringido', 
-      detail: 'La creación de administradores está deshabilitada en la API por seguridad. Debe realizarse por base de datos.' 
-    });
+    setCreating(true);
+    setCreateForm({ name: '', email: '', password: '', is_active: true });
+  };
+
+  const handleCreateSave = async () => {
+    if (!createForm.name?.trim() || !createForm.email?.trim() || !createForm.password?.trim()) {
+      toast.current?.show({ severity: 'warn', summary: 'Datos incompletos', detail: 'Por favor complete nombre, correo y contraseña.' });
+      return;
+    }
+    if (createForm.password.length < 8) {
+      toast.current?.show({ severity: 'warn', summary: 'Contraseña muy corta', detail: 'La contraseña debe tener al menos 8 caracteres.' });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await createUserAdmin({
+        name: createForm.name.trim(),
+        email: createForm.email.trim(),
+        password: createForm.password.trim(),
+      });
+
+      const merged = {
+        ...response,
+        rol: { rol_name: 'admin' },
+        created_at: new Date().toISOString()
+      };
+
+      setUsers([merged, ...users]);
+      setTotalRecords(prev => prev + 1);
+      setCreating(false);
+      toast.current?.show({ severity: 'success', summary: 'Creado', detail: 'Administrador creado correctamente' });
+    } catch (err) {
+      console.error(err);
+      toast.current?.show({ severity: 'error', summary: 'Error al crear', detail: err.response?.data?.error || err.response?.data?.message || 'Error del servidor' });
+    } finally {
+      setLoading(false);
+    }
   };
 
 
@@ -168,7 +210,7 @@ export default function AdminsManagement() {
 
       <Card className="management-table">
         <div className="management-toolbar">
-          <h3>Lista de Administradores ({filtered.length})</h3>
+          <h3>Lista de Administradores ({totalRecords})</h3>
           <div className="management-toolbar-actions">
             <span className="p-input-icon-left">
               <i className="pi pi-search" />
@@ -183,9 +225,13 @@ export default function AdminsManagement() {
         </div>
 
         <DataTable 
-          value={filtered} 
+          value={users} 
+          lazy
           paginator 
+          first={(page - 1) * 10}
           rows={10} 
+          totalRecords={totalRecords}
+          onPage={(e) => setPage(e.page + 1)}
           loading={loading} 
           stripedRows 
           responsiveLayout="scroll"
@@ -444,6 +490,51 @@ export default function AdminsManagement() {
         </div>
       </Dialog>
 
+      <Dialog
+        header="Crear Nuevo Administrador"
+        visible={creating}
+        style={{ width: '32rem' }}
+        onHide={() => setCreating(false)}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div>
+            <label htmlFor="createName" style={{ display: 'block', marginBottom: '0.5rem' }}><strong>Nombre</strong></label>
+            <InputText
+              id="createName"
+              value={createForm.name || ''}
+              onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
+              className="w-full"
+              placeholder="Nombre completo"
+            />
+          </div>
+          <div>
+            <label htmlFor="createEmail" style={{ display: 'block', marginBottom: '0.5rem' }}><strong>Correo</strong></label>
+            <InputText
+              id="createEmail"
+              value={createForm.email || ''}
+              onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
+              className="w-full"
+              placeholder="correo@example.com"
+            />
+          </div>
+          <div>
+            <label htmlFor="createPassword" style={{ display: 'block', marginBottom: '0.5rem' }}><strong>Contraseña</strong></label>
+            <InputText
+              id="createPassword"
+              type="password"
+              value={createForm.password || ''}
+              onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
+              className="w-full"
+              placeholder="Mínimo 8 caracteres"
+            />
+          </div>
+
+          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
+            <Button label="Cancelar" onClick={() => setCreating(false)} className="p-button-text" />
+            <Button label="Guardar" onClick={handleCreateSave} className="p-button-primary" />
+          </div>
+        </div>
+      </Dialog>
 
     </div>
     </>

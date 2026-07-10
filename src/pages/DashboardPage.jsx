@@ -46,7 +46,7 @@ export default function DashboardPage() {
     // 1. Cargar destinos una sola vez al montar el componente (son estáticos)
     const loadDestinations = async () => {
       try {
-        const list = await fetchDestinations();
+        const list = await fetchDestinations({ only_active: true });
         setDestinations(list || []);
       } catch (error) {
         console.error('Error al cargar destinos del campus:', error);

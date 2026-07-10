@@ -133,15 +133,58 @@ body, button, input, select, textarea, .p-component, h1, h2, h3, h4, h5, h6, p, 
   box-shadow: 0 0 0 0.2rem rgba(20, 73, 133, 0.15) !important;
 }
 
-/* Dialog */
+/* --- DIALOGS PREMIUM (MODERN CLEAN STYLE) --- */
+.p-dialog {
+  border-radius: 16px !important;
+  box-shadow: 0 20px 50px rgba(20, 73, 133, 0.15) !important;
+  border: 1px solid var(--border-light) !important;
+  overflow: hidden !important;
+}
+
 .p-dialog .p-dialog-header {
-  background-color: var(--primary-main);
-  color: white;
-  border: none;
+  background: #ffffff !important;
+  color: var(--primary-main) !important;
+  border-bottom: 1px solid var(--border-light) !important;
+  padding: 1.5rem 2rem !important;
 }
 
 .p-dialog .p-dialog-header .p-dialog-title {
-  color: white;
+  color: var(--primary-main) !important;
+  font-weight: 700 !important;
+  font-size: 1.3rem !important;
+  font-family: 'Outfit', sans-serif !important;
+}
+
+.p-dialog .p-dialog-header .p-dialog-header-icon {
+  width: 2.25rem !important;
+  height: 2.25rem !important;
+  border-radius: 50% !important;
+  background-color: var(--border-light) !important;
+  color: var(--text-secondary) !important;
+  border: none !important;
+  transition: all 0.2s ease-in-out !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.p-dialog .p-dialog-header .p-dialog-header-icon:hover {
+  background-color: var(--error-light) !important;
+  color: var(--error) !important;
+}
+
+.p-dialog .p-dialog-content {
+  padding: 2rem !important;
+  background: #ffffff !important;
+}
+
+.p-dialog .p-dialog-footer {
+  background: #fcfdfe !important;
+  border-top: 1px solid var(--border-light) !important;
+  padding: 1.25rem 2rem !important;
+  display: flex !important;
+  justify-content: flex-end !important;
+  gap: 0.75rem !important;
 }
 
 /* Progressbar */
@@ -177,6 +220,35 @@ body, button, input, select, textarea, .p-component, h1, h2, h3, h4, h5, h6, p, 
 /* Modificación de la forma de todos los botones para que tengan forma moderna con esquinas suavizadas */
 .p-button {
   border-radius: 8px !important;
+  transition: all 0.2s ease-in-out !important;
+}
+
+.p-button:focus {
+  outline: none !important;
+  box-shadow: 0 0 0 3px rgba(20, 73, 133, 0.2) !important;
+}
+
+/* Estilos limpios para botones de texto (como Cancelar) */
+.p-button.p-button-text {
+  color: var(--text-secondary) !important;
+  background: transparent !important;
+  border: none !important;
+}
+
+.p-button.p-button-text:hover {
+  background: var(--border-light) !important;
+  color: var(--primary-main) !important;
+}
+
+.p-button.p-button-text:focus {
+  box-shadow: 0 0 0 3px rgba(102, 102, 102, 0.15) !important;
+  background: var(--border-light) !important;
+}
+
+/* Botones de peligro en focus */
+.p-button.p-button-danger:focus,
+.p-button[style*="background-color: rgb(220, 38, 38)"]:focus {
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.25) !important;
 }
 
 /* Anular el color de fondo amarillo/marrón por defecto de los navegadores al autocompletar */
