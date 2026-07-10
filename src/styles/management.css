@@ -123,11 +123,11 @@
 }
 
 .management-table .p-datatable .p-datatable-thead > tr > th {
-  background-color: var(--primary-main);
-  color: white;
+  background-color: #eff6ff;
+  color: var(--primary-main);
   padding: 1rem;
-  font-weight: 600;
-  border: none;
+  font-weight: 700;
+  border-bottom: 2px solid #dbeafe;
 }
 
 .management-table .p-datatable .p-datatable-tbody > tr > td {
@@ -288,10 +288,9 @@
 .welcome-banner-content h1 {
   margin: 0;
   font-size: 1.85rem;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: -0.5px;
 }
-
 .welcome-banner-content p {
   margin: 0.5rem 0 0;
   opacity: 0.9;

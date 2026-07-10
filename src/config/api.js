@@ -12,6 +12,23 @@ export const api = axios.create({
   timeout: 10000, // 10 segundos
 });
 
+// --- Deduplicación de peticiones concurrentes GET ---
+const pendingRequests = new Map();
+const originalGet = api.get;
+
+api.get = function (url, config) {
+  const key = `${url}_${JSON.stringify(config?.params || {})}`;
+  if (pendingRequests.has(key)) {
+    return pendingRequests.get(key);
+  }
+  const promise = originalGet.call(this, url, config)
+    .finally(() => {
+      pendingRequests.delete(key);
+    });
+  pendingRequests.set(key, promise);
+  return promise;
+};
+
 // Interceptor de Peticiones: Adjuntar token Bearer de forma automática
 api.interceptors.request.use(
   (config) => {

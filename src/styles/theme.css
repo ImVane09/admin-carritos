@@ -35,6 +35,15 @@
   --shadow-lg: 0 8px 24px rgba(20, 73, 133, 0.16);
 }
 
+/* --- CONFIGURACIÓN GLOBAL DE TIPOGRAFÍA (Outfit) --- */
+body, button, input, select, textarea, .p-component, h1, h2, h3, h4, h5, h6, p, span, div, strong, label {
+  font-family: 'Outfit', sans-serif !important;
+}
+
+.pi {
+  font-family: 'primeicons' !important;
+}
+
 /* Sobrescribir temas de PrimeReact */
 .p-component {
   --primary-color: var(--primary-main);
@@ -142,23 +151,145 @@
 
 /* Solución para el solapamiento del icono de búsqueda (lupa) en inputs de PrimeReact */
 .p-input-icon-left {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
+  position: relative !important;
+  display: inline-flex !important;
+  align-items: center !important;
 }
 
-.p-input-icon-left > i {
-  position: absolute;
-  left: 0.95rem;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--text-secondary);
-  z-index: 1;
-  pointer-events: none;
-  font-size: 1rem;
+.p-input-icon-left i,
+.p-input-icon-left svg {
+  position: absolute !important;
+  left: 1rem !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  margin-top: 0 !important; /* Desactiva el desplazamiento negativo nativo de PrimeReact */
+  color: var(--text-secondary) !important;
+  z-index: 10 !important;
+  pointer-events: none !important;
+  font-size: 1rem !important;
 }
 
-.p-input-icon-left > input,
-.p-input-icon-left > .p-inputtext {
-  padding-left: 2.75rem !important;
+.p-input-icon-left input,
+.p-input-icon-left .p-inputtext {
+  padding-left: 2.6rem !important;
+}
+
+/* Modificación de la forma de todos los botones para que tengan forma moderna con esquinas suavizadas */
+.p-button {
+  border-radius: 8px !important;
+}
+
+/* Anular el color de fondo amarillo/marrón por defecto de los navegadores al autocompletar */
+input:-webkit-autofill,
+input:-webkit-autofill:hover, 
+input:-webkit-autofill:focus, 
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
+  -webkit-text-fill-color: var(--text-primary) !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+/* --- ESTILIZACIÓN DE TOASTS PREMIUM (GLASSMORPHISM & SOFT COLORS) --- */
+.p-toast {
+  opacity: 0.98 !important;
+  z-index: 10000 !important;
+}
+
+.p-toast .p-toast-message {
+  border-radius: 12px !important;
+  box-shadow: 0 10px 30px rgba(20, 73, 133, 0.12) !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+  backdrop-filter: blur(8px) !important;
+  margin-bottom: 0.75rem !important;
+  transition: all 0.3s ease !important;
+}
+
+/* Success Toast */
+.p-toast .p-toast-message.p-toast-message-success {
+  background-color: rgba(232, 245, 233, 0.96) !important;
+  border-color: rgba(76, 175, 80, 0.3) !important;
+}
+.p-toast .p-toast-message.p-toast-message-success .p-toast-message-icon,
+.p-toast .p-toast-message.p-toast-message-success .p-toast-summary,
+.p-toast .p-toast-message.p-toast-message-success .p-toast-icon-close {
+  color: #2e7d32 !important;
+}
+.p-toast .p-toast-message.p-toast-message-success .p-toast-detail {
+  color: #388e3c !important;
+}
+
+/* Error Toast */
+.p-toast .p-toast-message.p-toast-message-error {
+  background-color: rgba(255, 235, 238, 0.96) !important;
+  border-color: rgba(244, 67, 54, 0.3) !important;
+}
+.p-toast .p-toast-message.p-toast-message-error .p-toast-message-icon,
+.p-toast .p-toast-message.p-toast-message-error .p-toast-summary,
+.p-toast .p-toast-message.p-toast-message-error .p-toast-icon-close {
+  color: #c62828 !important;
+}
+.p-toast .p-toast-message.p-toast-message-error .p-toast-detail {
+  color: #d32f2f !important;
+}
+
+/* Warn Toast */
+.p-toast .p-toast-message.p-toast-message-warn {
+  background-color: rgba(255, 243, 224, 0.96) !important;
+  border-color: rgba(255, 152, 0, 0.3) !important;
+}
+.p-toast .p-toast-message.p-toast-message-warn .p-toast-message-icon,
+.p-toast .p-toast-message.p-toast-message-warn .p-toast-summary,
+.p-toast .p-toast-message.p-toast-message-warn .p-toast-icon-close {
+  color: #ef6c00 !important;
+}
+.p-toast .p-toast-message.p-toast-message-warn .p-toast-detail {
+  color: #f57c00 !important;
+}
+
+/* Info Toast */
+.p-toast .p-toast-message.p-toast-message-info {
+  background-color: rgba(227, 242, 253, 0.96) !important;
+  border-color: rgba(33, 150, 243, 0.3) !important;
+}
+.p-toast .p-toast-message.p-toast-message-info .p-toast-message-icon,
+.p-toast .p-toast-message.p-toast-message-info .p-toast-summary,
+.p-toast .p-toast-message.p-toast-message-info .p-toast-icon-close {
+  color: #1565c0 !important;
+}
+.p-toast .p-toast-message.p-toast-message-info .p-toast-detail {
+  color: #1976d2 !important;
+}
+
+/* Text and Inner layouts */
+.p-toast .p-toast-message-content {
+  padding: 1rem !important;
+  display: flex !important;
+  align-items: center !important;
+}
+.p-toast .p-toast-message-text {
+  margin-left: 0.75rem !important;
+}
+.p-toast .p-toast-summary {
+  font-family: 'Outfit', sans-serif !important;
+  font-weight: 700 !important;
+  font-size: 0.95rem !important;
+}
+.p-toast .p-toast-detail {
+  font-family: 'Outfit', sans-serif !important;
+  font-size: 0.85rem !important;
+  margin-top: 0.15rem !important;
+}
+.p-toast .p-toast-icon-close {
+  margin-left: auto !important;
+  border-radius: 50% !important;
+  width: 1.5rem !important;
+  height: 1.5rem !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: background-color 0.2s !important;
+}
+.p-toast .p-toast-icon-close:hover {
+  background-color: rgba(0, 0, 0, 0.05) !important;
 }

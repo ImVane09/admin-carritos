@@ -1,8 +1,53 @@
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from 'primereact/card';
+import { fetchDashboardStats } from '../services/adminService';
 
 export default function ManagementPage() {
   const navigate = useNavigate();
+  const [counts, setCounts] = useState({
+    admins: '...',
+    drivers: '...',
+    passengers: '...',
+    destinations: '...',
+    trips: '...'
+  });
+
+  useEffect(() => {
+    let active = true;
+
+    const loadCounts = async () => {
+      try {
+        const stats = await fetchDashboardStats();
+
+        if (!active) return;
+
+        setCounts({
+          admins: stats.admins,
+          drivers: stats.drivers,
+          passengers: stats.passengers,
+          destinations: stats.destinations,
+          trips: stats.trips
+        });
+      } catch (err) {
+        console.error('Error loading management page metrics:', err);
+        if (!active) return;
+        setCounts({
+          admins: 3,
+          drivers: 24,
+          passengers: 156,
+          destinations: 42,
+          trips: 'Historial'
+        });
+      }
+    };
+
+    loadCounts();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const managementOptions = [
     {
@@ -11,7 +56,7 @@ export default function ManagementPage() {
       icon: 'pi pi-shield',
       color: '#f83737ff',
       path: '/management/admins',
-      count: 3
+      count: counts.admins
     },
     {
       title: 'Conductores',
@@ -19,7 +64,7 @@ export default function ManagementPage() {
       icon: 'pi pi-car',
       color: '#1E88E5',
       path: '/management/drivers',
-      count: 24
+      count: counts.drivers
     },
     {
       title: 'Pasajeros',
@@ -27,7 +72,7 @@ export default function ManagementPage() {
       icon: 'pi pi-users',
       color: '#4caf50',
       path: '/management/passengers',
-      count: 156
+      count: counts.passengers
     },
     {
       title: 'Destinos',
@@ -35,7 +80,7 @@ export default function ManagementPage() {
       icon: 'pi pi-map-marker',
       color: '#ff9800',
       path: '/management/destinations',
-      count: 42
+      count: counts.destinations
     },
     {
       title: 'Historial de Viajes',
@@ -43,7 +88,7 @@ export default function ManagementPage() {
       icon: 'pi pi-history',
       color: '#9c27b0',
       path: '/management/trips',
-      count: 'Historial'
+      count: counts.trips === '...' ? '...' : (typeof counts.trips === 'number' ? `${counts.trips} viajes` : counts.trips)
     }
   ];
 

@@ -245,14 +245,6 @@ export default function DestinationsManagement() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="management-loading">
-        <ProgressSpinner style={{ width: '50px', height: '50px' }} />
-      </div>
-    );
-  }
-
   return (
     <>
       <Toast ref={toast} />
@@ -282,7 +274,7 @@ export default function DestinationsManagement() {
             </div>
           </div>
 
-          <DataTable value={filtered} paginator rows={10} responsiveLayout="scroll" stripedRows emptyMessage="No hay destinos registrados">
+          <DataTable value={filtered} paginator rows={10} loading={loading} responsiveLayout="scroll" stripedRows emptyMessage="No hay destinos registrados">
             <Column field="name" header="Nombre" sortable />
             <Column field="description" header="Descripción" body={(row) => row.description || 'Sin descripción'} />
             <Column header="Latitud" body={(row) => formatCoordinate(row.latitude)} />

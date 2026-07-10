@@ -40,7 +40,16 @@ export function AuthProvider({ children }) {
 
       if (token && cachedUser) {
         try {
-          setUser(JSON.parse(cachedUser));
+          const parsedUser = JSON.parse(cachedUser);
+          const role = (parsedUser.role || '').toLowerCase();
+          const roleId = parsedUser.role_id;
+
+          if (role !== 'admin' && role !== 'administrador' && roleId !== 1) {
+            clearStoredSession();
+            setUser(null);
+          } else {
+            setUser(parsedUser);
+          }
         } catch {
           clearStoredSession();
         }
@@ -50,12 +59,24 @@ export function AuthProvider({ children }) {
         try {
           const current = await meRequest();
           const normalized = normalizeAuthPayload(current, token);
-          setUser(normalized.user);
-          localStorage.setItem('admin_token', normalized.token);
-          localStorage.setItem('admin_user', JSON.stringify(normalized.user));
-        } catch {
-          clearStoredSession();
-          setUser(null);
+          const role = (normalized.user.role || '').toLowerCase();
+          const roleId = normalized.user.role_id;
+
+          if (role !== 'admin' && role !== 'administrador' && roleId !== 1) {
+            console.warn('Acceso denegado: El usuario no es administrador.');
+            clearStoredSession();
+            setUser(null);
+          } else {
+            setUser(normalized.user);
+            localStorage.setItem('admin_token', normalized.token);
+            localStorage.setItem('admin_user', JSON.stringify(normalized.user));
+          }
+        } catch (error) {
+          console.error('Error al recuperar sesión durante el inicio:', error);
+          if (error?.response?.status === 401) {
+            clearStoredSession();
+            setUser(null);
+          }
         }
       }
 
@@ -71,7 +92,14 @@ export function AuthProvider({ children }) {
       const normalized = normalizeAuthPayload(data);
 
       if (!normalized.token) {
-        throw new Error('No se recibio token de autenticacion');
+        throw new Error('No se recibió el token de autenticación');
+      }
+
+      const role = (normalized.user.role || '').toLowerCase();
+      const roleId = normalized.user.role_id;
+
+      if (role !== 'admin' && role !== 'administrador' && roleId !== 1) {
+        throw new Error('Acceso denegado. Este panel es exclusivo para administradores.');
       }
 
       setUser(normalized.user);
@@ -95,6 +123,7 @@ export function AuthProvider({ children }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth() {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error('useAuth debe usarse dentro de AuthProvider.');

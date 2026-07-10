@@ -117,3 +117,69 @@ export async function restoreDestination(id) {
   const { data } = await api.post(`/destinations/${id}/restore`);
   return data;
 }
+
+/**
+ * Obtiene las estadísticas resumidas del dashboard de forma eficiente
+ */
+export async function fetchDashboardStats() {
+  const { data } = await api.get('/dashboard/stats');
+  return data;
+}
+
+// --- Métricas e Informes Analíticos ---
+
+/**
+ * Obtiene el resumen de rendimiento de conductores para reportes
+ */
+export async function fetchDriversReport() {
+  const { data } = await api.get('/reports/drivers-summary');
+  return data;
+}
+
+/**
+ * Obtiene el reporte de popularidad de destinos paradas
+ */
+export async function fetchDestinationsReport() {
+  const { data } = await api.get('/reports/destinations-summary');
+  return data;
+}
+
+/**
+ * Obtiene el reporte de distribución horaria de viajes (horas pico)
+ */
+export async function fetchHourlyReport() {
+  const { data } = await api.get('/reports/hourly-summary');
+  return data;
+}
+
+/**
+ * Obtiene el reporte de demanda diaria de viajes
+ */
+export async function fetchDailyReport() {
+  const { data } = await api.get('/reports/daily-summary');
+  return data;
+}
+
+/**
+ * Obtiene el reporte de distribución de valoraciones de estrellas y comentarios recientes
+ */
+export async function fetchRatingsDistributionReport() {
+  const { data } = await api.get('/reports/ratings-distribution');
+  return data;
+}
+
+/**
+ * Obtiene el reporte de tiempos de viaje por rutas comunes
+ */
+export async function fetchRoutesPerformanceReport() {
+  const { data } = await api.get('/reports/routes-performance');
+  return data;
+}
+
+/**
+ * Obtiene el resumen consolidado de todas las métricas de reportes en una sola llamada de red
+ */
+export async function fetchReportsAllSummary() {
+  const { data } = await api.get('/reports/all-summary');
+  return data;
+}

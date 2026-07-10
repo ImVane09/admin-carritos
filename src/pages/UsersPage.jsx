@@ -10,18 +10,6 @@ import { Tag } from 'primereact/tag';
 import { ProgressSpinner } from 'primereact/progressspinner';
 import { fetchUsers } from '../services/adminService';
 
-// Datos de prueba premium para demostración
-const MOCK_USERS = [
-  { id: 1, name: 'Juan Pérez', email: 'juan@carritos.admin', role: 'admin', is_active: true, created_at: '2024-01-15T08:30:00Z' },
-  { id: 2, name: 'María Torres', email: 'maria@carritos.admin', role: 'admin', is_active: true, created_at: '2024-02-20T10:15:00Z' },
-  { id: 3, name: 'Carlos Vega', email: 'carlos@carritos.admin', role: 'admin', is_active: false, created_at: '2024-03-10T14:45:00Z' },
-  { id: 4, name: 'Ing. Luis Mendoza', email: 'luis.mendoza@uleam.edu.ec', role: 'conductor', is_active: true, created_at: '2024-03-12T07:00:00Z' },
-  { id: 5, name: 'Tec. Ana Gómez', email: 'ana.gomez@uleam.edu.ec', role: 'conductor', is_active: true, created_at: '2024-03-14T09:12:00Z' },
-  { id: 6, name: 'Sofía Castro', email: 'sofia.castro@estudiantes.uleam.edu.ec', role: 'pasajero', is_active: true, created_at: '2024-03-15T11:22:00Z' },
-  { id: 7, name: 'Diego Romero', email: 'diego.romero@estudiantes.uleam.edu.ec', role: 'pasajero', is_active: true, created_at: '2024-03-16T15:05:00Z' },
-  { id: 8, name: 'Gabriela Ortiz', email: 'gabriela.ortiz@estudiantes.uleam.edu.ec', role: 'pasajero', is_active: false, created_at: '2024-03-18T16:40:00Z' },
-];
-
 export default function UsersPage() {
   const navigate = useNavigate();
   const [users, setUsers] = useState([]);
@@ -41,8 +29,8 @@ export default function UsersPage() {
         }));
         setUsers(parsed);
       } catch (error) {
-        console.error('Error fetching users, falling back to mock data', error);
-        setUsers(MOCK_USERS);
+        console.error('Error al cargar usuarios:', error);
+        setUsers([]);
       } finally {
         setLoading(false);
       }
@@ -145,14 +133,6 @@ export default function UsersPage() {
     );
   };
 
-  if (loading) {
-    return (
-      <div className="page-loading">
-        <ProgressSpinner style={{ width: '48px', height: '48px' }} />
-      </div>
-    );
-  }
-
   return (
     <div className="management-section">
       <div className="management-header">
@@ -186,6 +166,7 @@ export default function UsersPage() {
           stripedRows
           responsiveLayout="scroll"
           emptyMessage="No se encontraron usuarios"
+          loading={loading}
           rowsPerPageOptions={[5, 10, 20, 50]}
           paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
           currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} usuarios"

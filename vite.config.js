@@ -8,5 +8,8 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 5175,
     strictPort: true,
+    watch: {
+      ignored: ['**/Back-Carritos/**']
+    }
   },
 })

@@ -105,14 +105,6 @@ export default function TripsHistoryManagement() {
     return <span>{stars}</span>;
   };
 
-  if (loading) {
-    return (
-      <div className="management-loading">
-        <ProgressSpinner style={{ width: '50px', height: '50px' }} />
-      </div>
-    );
-  }
-
   return (
     <>
       <Toast ref={toast} />
@@ -149,6 +141,7 @@ export default function TripsHistoryManagement() {
             responsiveLayout="scroll"
             stripedRows
             emptyMessage="No hay viajes registrados"
+            loading={loading}
           >
             <Column field="id" header="ID Viaje" sortable style={{ width: '7%' }} />
             <Column

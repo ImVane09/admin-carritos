@@ -11,15 +11,6 @@ import { fetchUsers, registerPassenger, updateUser, deleteUser, toggleUserStatus
 import { ProgressSpinner } from 'primereact/progressspinner';
 import { useRef } from 'react';
 
-// Mock data for development
-const MOCK_PASSENGERS = [
-  { id: 1, name: 'Sofía Martínez', email: 'sofia@passenger.local', phone: '+593 98 555 6666', city: 'Quito', address: 'Av. de los Shyris y Naciones Unidas', is_active: true, trips_count: 12, created_at: '2024-01-05' },
-  { id: 2, name: 'David López', email: 'david@passenger.local', phone: '+593 99 666 7777', city: 'Guayaquil', address: 'Av. Francisco de Orellana y Juan Tanca Marengo', is_active: true, trips_count: 8, created_at: '2024-01-12' },
-  { id: 3, name: 'Elena García', email: 'elena@passenger.local', phone: '+593 97 777 8888', city: 'Cuenca', address: 'Av. Ordóñez Lasso y 12 de Abril', is_active: true, trips_count: 5, created_at: '2024-01-18' },
-  { id: 4, name: 'Roberto Fernández', email: 'roberto@passenger.local', phone: '+593 98 888 9999', city: 'Ambato', address: 'Av. Cevallos y Martínez', is_active: false, trips_count: 3, created_at: '2024-02-02' },
-  { id: 5, name: 'Lucía Sánchez', email: 'lucia@passenger.local', phone: '+593 99 000 1111', city: 'Manta', address: 'Malecón y Flavio Reyes', is_active: true, trips_count: 15, created_at: '2024-02-08' },
-];
-
 export default function PassengersManagement() {
   const toast = useRef(null);
   const [users, setUsers] = useState([]);
@@ -30,7 +21,7 @@ export default function PassengersManagement() {
   const [editForm, setEditForm] = useState({});
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [creating, setCreating] = useState(false);
-  const [createForm, setCreateForm] = useState({ name: '', email: '', password: '', phone: '', city: '', address: '', is_active: true });
+  const [createForm, setCreateForm] = useState({ name: '', email: '', password: '', is_active: true });
 
   useEffect(() => {
     const load = async () => {
@@ -39,9 +30,14 @@ export default function PassengersManagement() {
         const result = await fetchUsers();
         const passengers = result.filter(u => (u.role || u.rol?.rol_name || 'pasajero').toLowerCase() === 'pasajero');
         setUsers(passengers);
-      } catch {
-        // Use mock data on error
-        setUsers(MOCK_PASSENGERS);
+      } catch (err) {
+        console.error('Error al cargar pasajeros:', err);
+        toast.current?.show({
+          severity: 'error',
+          summary: 'Error',
+          detail: 'No se pudieron cargar los pasajeros desde el servidor.'
+        });
+        setUsers([]);
       } finally {
         setLoading(false);
       }
@@ -68,7 +64,7 @@ export default function PassengersManagement() {
 
   const handleEdit = (row) => {
     setEditing(row.id);
-    setEditForm({ ...row });
+    setEditForm({ ...row, password: '' });
   };
 
   const handleSave = async () => {
@@ -79,19 +75,31 @@ export default function PassengersManagement() {
 
     setLoading(true);
     try {
-      // 1. Guardar cambios en el backend (nombre y correo)
-      const response = await updateUser(editForm.id, {
+      // 1. Guardar cambios en el backend (nombre, correo y opcionalmente contraseña)
+      const payload = {
         name: editForm.name,
         email: editForm.email
-      });
+      };
+      if (editForm.password?.trim()) {
+        payload.password = editForm.password.trim();
+      }
+      const response = await updateUser(editForm.id, payload);
 
       // 2. Si el estado "activo" cambió, ejecutar el toggle
       const original = users.find(u => u.id === editForm.id);
-      if (original && original.is_active !== editForm.is_active) {
-        await toggleUserStatus(editForm.id);
+      let activeState = !!editForm.is_active;
+      if (original && (!!original.is_active !== !!editForm.is_active)) {
+        const toggleRes = await toggleUserStatus(editForm.id);
+        if (toggleRes && toggleRes.user) {
+          activeState = !!toggleRes.user.is_active;
+        }
       }
 
-      const merged = { ...editForm, ...response.user };
+      const merged = { 
+        ...editForm, 
+        ...response.user,
+        is_active: activeState
+      };
       setUsers(users.map(u => u.id === editForm.id ? merged : u));
       setEditing(null);
       toast.current?.show({ severity: 'success', summary: 'Éxito', detail: 'Pasajero actualizado correctamente' });
@@ -138,7 +146,7 @@ export default function PassengersManagement() {
 
   const handleCreate = () => {
     setCreating(true);
-    setCreateForm({ name: '', email: '', password: '', phone: '', city: '', address: '', is_active: true });
+    setCreateForm({ name: '', email: '', password: '', is_active: true });
   };
 
   const handleCreateSave = async () => {
@@ -164,10 +172,6 @@ export default function PassengersManagement() {
 
       const merged = {
         ...response.user,
-        phone: createForm.phone,
-        city: createForm.city,
-        address: createForm.address,
-        trips_count: 0,
         created_at: new Date().toISOString()
       };
 
@@ -182,13 +186,7 @@ export default function PassengersManagement() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="management-loading">
-        <ProgressSpinner style={{ width: '50px', height: '50px' }} />
-      </div>
-    );
-  }
+
 
   return (
     <>
@@ -228,8 +226,6 @@ export default function PassengersManagement() {
         >
           <Column field="name" header="Nombre" sortable />
           <Column field="email" header="Correo" sortable />
-          <Column field="phone" header="Teléfono" />
-          <Column field="city" header="Ciudad" />
           <Column header="Estado" body={statusBody} />
           <Column
             header="Acciones"
@@ -280,19 +276,72 @@ export default function PassengersManagement() {
       <Dialog
         header="Detalles del Pasajero"
         visible={!!selected}
-        style={{ width: '32rem' }}
+        style={{ width: '30rem' }}
         onHide={() => setSelected(null)}
+        dismissableMask
       >
         {selected && (
-          <div className="user-detail">
-            <p><strong>Nombre:</strong> {selected.name}</p>
-            <p><strong>Correo:</strong> {selected.email}</p>
-            <p><strong>Teléfono:</strong> {selected.phone || 'No registrado'}</p>
-            <p><strong>Ciudad:</strong> {selected.city || 'No registrada'}</p>
-            <p><strong>Dirección:</strong> {selected.address || 'No registrada'}</p>
-            <p><strong>Estado:</strong> {selected.is_active ? '✓ Activo' : '✗ Inactivo'}</p>
-            <p><strong>Registrado:</strong> {new Date(selected.created_at).toLocaleDateString('es-ES')}</p>
-            <p><strong>Viajes:</strong> {selected.trips_count || 0} viajes</p>
+          <div className="user-detail-card" style={{ padding: '0.5rem 0' }}>
+            <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+              <div
+                style={{
+                  width: '64px',
+                  height: '64px',
+                  borderRadius: '50%',
+                  backgroundColor: 'var(--brand-700)',
+                  color: 'white',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '1.5rem',
+                  fontWeight: 'bold',
+                  margin: '0 auto 0.5rem auto',
+                  boxShadow: '0 4px 10px rgba(0,0,0,0.1)',
+                }}
+              >
+                {selected.name?.slice(0, 1).toUpperCase()}
+              </div>
+              <h3 style={{ margin: '0.3rem 0', color: 'var(--brand-900)', fontSize: '1.35rem', fontWeight: '600' }}>{selected.name}</h3>
+              <p style={{ color: 'var(--ink-500)', fontSize: '0.85rem', margin: 0 }}>ID de Pasajero: #{selected.id}</p>
+            </div>
+
+            <div style={{ display: 'grid', gap: '1rem', borderTop: '1px solid var(--border)', paddingTop: '1.2rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: 'var(--ink-500)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <i className="pi pi-envelope" style={{ color: 'var(--brand-500)' }} /> Correo Electrónico:
+                </span>
+                <strong style={{ color: 'var(--ink-900)', wordBreak: 'break-all', marginLeft: '1rem', textAlign: 'right' }}>{selected.email}</strong>
+              </div>
+              
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: 'var(--ink-500)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <i className="pi pi-check-circle" style={{ color: 'var(--brand-500)' }} /> Estado de cuenta:
+                </span>
+                <span className={`status-badge status-${selected.is_active ? 'activo' : 'inactivo'}`} style={{ margin: 0 }}>
+                  {selected.is_active ? 'Activo' : 'Inactivo'}
+                </span>
+              </div>
+              
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: 'var(--ink-500)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <i className="pi pi-calendar" style={{ color: 'var(--brand-500)' }} /> Fecha de Registro:
+                </span>
+                <strong style={{ color: 'var(--ink-900)' }}>
+                  {new Date(selected.created_at).toLocaleDateString('es-ES', {
+                    dateStyle: 'medium'
+                  })}
+                </strong>
+              </div>
+            </div>
+            
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '2rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
+              <Button
+                label="Cancelar"
+                onClick={() => setSelected(null)}
+                className="p-button-text"
+                style={{ borderRadius: '8px' }}
+              />
+            </div>
           </div>
         )}
       </Dialog>
@@ -323,33 +372,19 @@ export default function PassengersManagement() {
                 className="w-full"
               />
             </div>
+
             <div>
-              <label htmlFor="phone" style={{ display: 'block', marginBottom: '0.5rem' }}><strong>Teléfono</strong></label>
+              <label htmlFor="password" style={{ display: 'block', marginBottom: '0.5rem' }}><strong>Nueva Contraseña (Opcional)</strong></label>
               <InputText
-                id="phone"
-                value={editForm.phone || ''}
-                onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                id="password"
+                type="password"
+                value={editForm.password || ''}
+                onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
                 className="w-full"
+                placeholder="Dejar vacío para no cambiar"
               />
             </div>
-            <div>
-              <label htmlFor="city" style={{ display: 'block', marginBottom: '0.5rem' }}><strong>Ciudad</strong></label>
-              <InputText
-                id="city"
-                value={editForm.city || ''}
-                onChange={(e) => setEditForm({ ...editForm, city: e.target.value })}
-                className="w-full"
-              />
-            </div>
-            <div>
-              <label htmlFor="address" style={{ display: 'block', marginBottom: '0.5rem' }}><strong>Dirección</strong></label>
-              <InputText
-                id="address"
-                value={editForm.address || ''}
-                onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
-                className="w-full"
-              />
-            </div>
+
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <label htmlFor="is_active"><strong>Activo</strong></label>
               <InputSwitch
@@ -367,17 +402,72 @@ export default function PassengersManagement() {
       </Dialog>
 
       <Dialog
-        header="Confirmar suspensión"
         visible={!!deleteConfirm}
-        style={{ width: '32rem' }}
+        style={{ width: '26rem', borderRadius: '16px' }}
         onHide={() => setDeleteConfirm(null)}
+        showHeader={false}
       >
-        <div style={{ marginBottom: '1rem' }}>
-          <p>¿Está seguro que desea suspender este pasajero? Podrá restaurarlo más adelante.</p>
-        </div>
-        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
-          <Button label="Cancelar" onClick={() => setDeleteConfirm(null)} className="p-button-text" />
-          <Button label="Suspender" onClick={confirmDelete} className="p-button-danger" />
+        <div style={{ padding: '1.5rem 1rem 1rem 1rem', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+          <div style={{
+            width: '3.25rem',
+            height: '3.25rem',
+            borderRadius: '50%',
+            backgroundColor: '#fee2e2',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#dc2626',
+            fontSize: '1.5rem',
+            marginBottom: '1rem',
+            boxShadow: '0 4px 10px rgba(220, 38, 38, 0.15)'
+          }}>
+            <i className="pi pi-exclamation-triangle" />
+          </div>
+          
+          <h3 style={{
+            margin: '0 0 0.5rem 0',
+            fontSize: '1.2rem',
+            fontWeight: 700,
+            color: '#0f172a',
+            fontFamily: "'Outfit', sans-serif"
+          }}>
+            ¿Confirmar suspensión?
+          </h3>
+          
+          <p style={{
+            margin: '0 0 1.5rem 0',
+            fontSize: '0.9rem',
+            color: '#64748b',
+            lineHeight: '1.45',
+            fontFamily: "'Outfit', sans-serif"
+          }}>
+            ¿Está seguro que desea suspender a este pasajero? Podrá restaurarlo o volver a activarlo en cualquier momento más adelante.
+          </p>
+          
+          <div style={{ display: 'flex', gap: '0.75rem', width: '100%' }}>
+            <Button
+              label="Cancelar"
+              onClick={() => setDeleteConfirm(null)}
+              className="p-button-text"
+              style={{ flex: 1, borderRadius: '8px' }}
+            />
+            <Button
+              label="Suspender"
+              onClick={confirmDelete}
+              style={{
+                flex: 1,
+                borderRadius: '8px',
+                backgroundColor: '#dc2626',
+                border: 'none',
+                color: '#ffffff',
+                fontWeight: 600,
+                fontSize: '0.9rem',
+                padding: '0.65rem 0',
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(220, 38, 38, 0.2)'
+              }}
+            />
+          </div>
         </div>
       </Dialog>
 
@@ -419,36 +509,7 @@ export default function PassengersManagement() {
               placeholder="Mínimo 8 caracteres"
             />
           </div>
-          <div>
-            <label htmlFor="createPhone" style={{ display: 'block', marginBottom: '0.5rem' }}><strong>Teléfono</strong></label>
-            <InputText
-              id="createPhone"
-              value={createForm.phone || ''}
-              onChange={(e) => setCreateForm({ ...createForm, phone: e.target.value })}
-              className="w-full"
-              placeholder="+593 98 123 4567"
-            />
-          </div>
-          <div>
-            <label htmlFor="createCity" style={{ display: 'block', marginBottom: '0.5rem' }}><strong>Ciudad</strong></label>
-            <InputText
-              id="createCity"
-              value={createForm.city || ''}
-              onChange={(e) => setCreateForm({ ...createForm, city: e.target.value })}
-              className="w-full"
-              placeholder="Quito"
-            />
-          </div>
-          <div>
-            <label htmlFor="createAddress" style={{ display: 'block', marginBottom: '0.5rem' }}><strong>Dirección</strong></label>
-            <InputText
-              id="createAddress"
-              value={createForm.address || ''}
-              onChange={(e) => setCreateForm({ ...createForm, address: e.target.value })}
-              className="w-full"
-              placeholder="Av. de los Shyris y Naciones Unidas"
-            />
-          </div>
+
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <label htmlFor="createActive"><strong>Activo</strong></label>
             <InputSwitch

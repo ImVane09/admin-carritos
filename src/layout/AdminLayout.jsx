@@ -8,6 +8,7 @@ const menu = [
   { section: 'Monitoreo' },
   { to: '/', label: 'Dashboard', icon: 'pi pi-home' },
   { to: '/users', label: 'Usuarios', icon: 'pi pi-users' },
+  { to: '/reports', label: 'Reportes', icon: 'pi pi-chart-bar' },
   { section: 'Gestión General', collapsible: true },
   { to: '/management/admins', label: 'Administradores', icon: 'pi pi-shield', nested: true },
   { to: '/management/drivers', label: 'Conductores', icon: 'pi pi-car', nested: true },
@@ -120,11 +121,6 @@ export default function AdminLayout() {
 
       <main className="content-area">
         <header className="topbar">
-          <div>
-            <h1>Panel de Administración</h1>
-            <p>Gestión del sistema en tiempo real</p>
-          </div>
-
           <div className="top-actions">
             <Avatar label={(user?.name || 'A').slice(0, 1).toUpperCase()} shape="circle" />
             <Button label="Salir" icon="pi pi-sign-out" severity="danger" text onClick={onLogout} />

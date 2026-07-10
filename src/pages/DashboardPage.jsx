@@ -2,18 +2,24 @@ import { useEffect, useMemo, useState } from 'react';
 import { Card } from 'primereact/card';
 import { Tag } from 'primereact/tag';
 import { ProgressSpinner } from 'primereact/progressspinner';
-import { fetchDestinations, fetchDrivers, fetchTrips, fetchUsers } from '../services/adminService';
+import { fetchDestinations, fetchDrivers, fetchDashboardStats } from '../services/adminService';
 import DashboardLiveMap from '../components/DashboardLiveMap';
 import { createEcho } from '../services/echoService';
 
 const CAMPUS_CENTER = [-0.9525, -80.7450];
 
-function StatCardPremium({ title, value, icon, tone, subtitle }) {
+function StatCardPremium({ title, value, icon, tone, subtitle, loading }) {
   return (
     <div className={`stat-card-premium ${tone}`}>
       <div className="stat-premium-info">
         <span>{title}</span>
-        <h2>{value}</h2>
+        {loading ? (
+          <h2 style={{ display: 'flex', alignItems: 'center', height: '2.5rem', margin: '0.25rem 0' }}>
+            <ProgressSpinner style={{ width: '22px', height: '22px' }} strokeWidth="6" />
+          </h2>
+        ) : (
+          <h2>{value}</h2>
+        )}
         <p><i className="pi pi-check-circle" style={{ color: '#4caf50', fontSize: '0.8rem' }} /> {subtitle || 'Sincronizado'}</p>
       </div>
       <div className="stat-icon-wrapper">
@@ -24,7 +30,7 @@ function StatCardPremium({ title, value, icon, tone, subtitle }) {
 }
 
 export default function DashboardPage() {
-  const [loading, setLoading] = useState(true);
+  const [statsLoading, setStatsLoading] = useState(true);
   const [stats, setStats] = useState({ users: 0, drivers: 0, trips: 0, active: 0, completed: 0, destinations: 0 });
   const [drivers, setDrivers] = useState([]);
   const [destinations, setDestinations] = useState([]);
@@ -37,40 +43,39 @@ export default function DashboardPage() {
   useEffect(() => {
     let echoInstance = null;
 
-    const load = async (isInitial = false) => {
-      if (isInitial) setLoading(true);
+    // 1. Cargar destinos una sola vez al montar el componente (son estáticos)
+    const loadDestinations = async () => {
       try {
-        const [users, trips, destinationsList, driversList] = await Promise.all([
-          fetchUsers(),
-          fetchTrips(),
-          fetchDestinations(),
+        const list = await fetchDestinations();
+        setDestinations(list || []);
+      } catch (error) {
+        console.error('Error al cargar destinos del campus:', error);
+      }
+    };
+    loadDestinations();
+
+    // 2. Cargar estadísticas y conductores en línea de manera asíncrona
+    const loadDynamicData = async (isInitial = false) => {
+      if (isInitial) setStatsLoading(true);
+      try {
+        const [dashboardStats, driversList] = await Promise.all([
+          fetchDashboardStats(),
           fetchDrivers(),
         ]);
-        const driversCount = users.filter((u) => (u.role || u.rol?.rol_name || '').toLowerCase() === 'conductor');
-        const activeTrips = trips.filter((t) => t.state_id === 1 || t.state_id === 2 || t.state_id === 4 || t.state?.id === 1 || t.state?.id === 2 || t.state?.id === 4);
-        const completedTrips = trips.filter((t) => t.state_id === 3 || t.state?.id === 3);
         
-        setStats({
-          users: users.length,
-          drivers: driversCount.length,
-          trips: trips.length,
-          active: activeTrips.length,
-          completed: completedTrips.length,
-          destinations: destinationsList.length,
-        });
-
+        setStats(dashboardStats);
         setDrivers(driversList);
-        setDestinations(destinationsList);
         setLastUpdate(new Date());
       } catch (error) {
         console.error('Error al cargar datos en tiempo real del dashboard:', error);
       } finally {
-        if (isInitial) setLoading(false);
+        if (isInitial) setStatsLoading(false);
       }
     };
 
-    load(true);
+    loadDynamicData(true);
 
+    // 3. Inicializar WebSocket para actualización de GPS en vivo
     const token = localStorage.getItem('admin_token');
     if (token) {
       try {
@@ -113,9 +118,10 @@ export default function DashboardPage() {
       }
     }
 
+    // 4. Polling de respaldo cada 20 segundos (antes 15 segundos)
     const interval = setInterval(() => {
-      load(false);
-    }, 15000);
+      loadDynamicData(false);
+    }, 20000);
 
     return () => {
       clearInterval(interval);
@@ -125,14 +131,6 @@ export default function DashboardPage() {
       }
     };
   }, []);
-
-  if (loading) {
-    return (
-      <div className="page-loading">
-        <ProgressSpinner style={{ width: '44px', height: '44px' }} />
-      </div>
-    );
-  }
 
   return (
     <div className="dashboard-layout" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
@@ -156,12 +154,12 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Grid de Tarjetas de Estadísticas Moderno */}
+      {/* Grid de Tarjetas de Estadísticas Moderno (con carga Inline) */}
       <div className="dashboard-grid-premium">
-        <StatCardPremium title="Usuarios del Sistema" value={stats.users} icon="pi pi-users" tone="blue" subtitle="Cuentas registradas" />
-        <StatCardPremium title="Conductores" value={stats.drivers} icon="pi pi-car" tone="cyan" subtitle="Asignados a ruta" />
-        <StatCardPremium title="Destinos Campus" value={stats.destinations} icon="pi pi-map-marker" tone="green" subtitle="Puntos de parada" />
-        <StatCardPremium title="Historial de Viajes" value={stats.trips} icon="pi pi-history" tone="purple" subtitle="Total de viajes" />
+        <StatCardPremium title="Usuarios del Sistema" value={stats.users} icon="pi pi-users" tone="blue" subtitle="Cuentas registradas" loading={statsLoading} />
+        <StatCardPremium title="Conductores" value={stats.drivers} icon="pi pi-car" tone="cyan" subtitle="Asignados a ruta" loading={statsLoading} />
+        <StatCardPremium title="Destinos Campus" value={stats.destinations} icon="pi pi-map-marker" tone="green" subtitle="Puntos de parada" loading={statsLoading} />
+        <StatCardPremium title="Historial de Viajes" value={stats.trips} icon="pi pi-history" tone="purple" subtitle="Total de viajes" loading={statsLoading} />
       </div>
 
       {/* Panel Principal de Monitoreo */}
@@ -184,7 +182,7 @@ export default function DashboardPage() {
             </div>
             <div className="welcome-banner-date" style={{ color: 'var(--text-primary)', background: 'var(--border-light)', border: '1px solid var(--border-color)', padding: '0.5rem 1rem', borderRadius: '0.75rem' }}>
               <i className="pi pi-clock" style={{ color: 'var(--primary-light)' }} />
-              <span>Sincronizado: {lastUpdate ? lastUpdate.toLocaleTimeString('es-ES') : 'conéctando...'}</span>
+              <span>Sincronizado: {lastUpdate ? lastUpdate.toLocaleTimeString('es-ES') : 'conectando...'}</span>
             </div>
           </div>
         </div>
