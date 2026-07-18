@@ -138,10 +138,12 @@ export default function UsersPage() {
   return (
     <div className="management-section">
       <div className="management-header">
-        <i className="pi pi-users" style={{ color: 'var(--brand-700)' }} />
-        <div className="management-header-content">
-          <h2>Usuarios del Sistema</h2>
-          <p>Visión general y monitoreo consolidado de todas las cuentas registradas</p>
+        <div className="management-header-left">
+          <i className="pi pi-users" style={{ color: 'white' }} />
+          <div className="management-header-content">
+            <h2>Usuarios del Sistema</h2>
+            <p>Visión general y monitoreo consolidado de todas las cuentas registradas</p>
+          </div>
         </div>
       </div>
 

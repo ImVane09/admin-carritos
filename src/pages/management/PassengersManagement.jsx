@@ -6,6 +6,7 @@ import { DataTable } from 'primereact/datatable';
 import { Dialog } from 'primereact/dialog';
 import { InputText } from 'primereact/inputtext';
 import { InputSwitch } from 'primereact/inputswitch';
+import { Dropdown } from 'primereact/dropdown';
 import { Toast } from 'primereact/toast';
 import { fetchUsers, registerPassenger, updateUser, deleteUser, toggleUserStatus, restoreUser } from '../../services/adminService';
 import { ProgressSpinner } from 'primereact/progressspinner';
@@ -17,6 +18,7 @@ export default function PassengersManagement() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState(null);
   const [page, setPage] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
   const [selected, setSelected] = useState(null);
@@ -38,7 +40,7 @@ export default function PassengersManagement() {
     const load = async () => {
       setLoading(true);
       try {
-        const result = await fetchUsers({ role_name: 'pasajero', per_page: 10, page, search: debouncedQuery });
+        const result = await fetchUsers({ per_page: 10, page, search: debouncedQuery, role_name: 'pasajero', status: statusFilter });
         setUsers(result?.data || []);
         setTotalRecords(result?.total || 0);
       } catch (err) {
@@ -55,7 +57,7 @@ export default function PassengersManagement() {
       }
     };
     load();
-  }, [page, debouncedQuery]);
+  }, [page, debouncedQuery, statusFilter]);
 
   const statusBody = (row) => {
     if (row.deleted_at) {
@@ -106,7 +108,16 @@ export default function PassengersManagement() {
         ...response.user,
         is_active: activeState
       };
-      setUsers(users.map(u => u.id === editForm.id ? merged : u));
+      
+      if (statusFilter === 'active' && !activeState) {
+        setUsers(users.filter(u => u.id !== editForm.id));
+        setTotalRecords(prev => prev - 1);
+      } else if (statusFilter === 'inactive' && activeState) {
+        setUsers(users.filter(u => u.id !== editForm.id));
+        setTotalRecords(prev => prev - 1);
+      } else {
+        setUsers(users.map(u => u.id === editForm.id ? merged : u));
+      }
       setEditing(null);
       toast.current?.show({ severity: 'success', summary: 'Éxito', detail: 'Pasajero actualizado correctamente' });
     } catch (err) {
@@ -125,7 +136,12 @@ export default function PassengersManagement() {
     setLoading(true);
     try {
       await deleteUser(deleteConfirm);
-      setUsers(users.map(u => u.id === deleteConfirm ? { ...u, deleted_at: new Date().toISOString() } : u));
+      if (statusFilter === 'active' || statusFilter === 'inactive') {
+        setUsers(users.filter(u => u.id !== deleteConfirm));
+        setTotalRecords(prev => prev - 1);
+      } else {
+        setUsers(users.map(u => u.id === deleteConfirm ? { ...u, deleted_at: new Date().toISOString() } : u));
+      }
       setDeleteConfirm(null);
       toast.current?.show({ severity: 'success', summary: 'Suspendido', detail: 'Pasajero suspendido correctamente' });
     } catch (err) {
@@ -140,7 +156,12 @@ export default function PassengersManagement() {
     setLoading(true);
     try {
       await restoreUser(row.id);
-      setUsers(users.map(u => u.id === row.id ? { ...u, deleted_at: null } : u));
+      if (statusFilter === 'suspended') {
+        setUsers(users.filter(u => u.id !== row.id));
+        setTotalRecords(prev => prev - 1);
+      } else {
+        setUsers(users.map(u => u.id === row.id ? { ...u, deleted_at: null } : u));
+      }
       toast.current?.show({ severity: 'success', summary: 'Restaurado', detail: 'Pasajero restaurado correctamente' });
     } catch (err) {
       console.error(err);
@@ -199,17 +220,32 @@ export default function PassengersManagement() {
     <Toast ref={toast} />
     <div className="management-section">
       <div className="management-header">
-        <i className="pi pi-users" />
-        <div className="management-header-content">
-          <h2>Pasajeros</h2>
-          <p>Gestión de cuentas de pasajeros</p>
+        <div className="management-header-left">
+          <i className="pi pi-users" />
+          <div className="management-header-content">
+            <h2>Pasajeros</h2>
+            <p>Gestión de cuentas de pasajeros</p>
+          </div>
         </div>
+        <Button label="Nuevo Pasajero" icon="pi pi-plus" className="p-button-primary" onClick={handleCreate} />
       </div>
 
       <Card className="management-table">
         <div className="management-toolbar">
           <h3>Lista de Pasajeros ({totalRecords})</h3>
-          <div className="management-toolbar-actions">
+          <div className="management-toolbar-filters">
+            <Dropdown 
+              value={statusFilter} 
+              options={[
+                { label: 'Todos', value: 'all' },
+                { label: 'Activos', value: 'active' },
+                { label: 'Inactivos / Suspendidos', value: 'inactive' }
+              ]} 
+              optionLabel="label"
+              optionValue="value"
+              onChange={(e) => { setStatusFilter(e.value); setPage(1); }} 
+              placeholder="Filtrar por estado" 
+            />
             <span className="p-input-icon-left">
               <i className="pi pi-search" />
               <InputText 
@@ -218,7 +254,6 @@ export default function PassengersManagement() {
                 placeholder="Buscar por nombre o correo" 
               />
             </span>
-            <Button label="Nuevo Pasajero" icon="pi pi-plus" className="p-button-primary" onClick={handleCreate} />
           </div>
         </div>
 

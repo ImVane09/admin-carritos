@@ -7,6 +7,7 @@ import { Dialog } from 'primereact/dialog';
 import { InputText } from 'primereact/inputtext';
 import { InputNumber } from 'primereact/inputnumber';
 import { InputSwitch } from 'primereact/inputswitch';
+import { Dropdown } from 'primereact/dropdown';
 import { Toast } from 'primereact/toast';
 import { fetchUsers, createUserDriver, updateUser, deleteUser, toggleUserStatus, restoreUser } from '../../services/adminService';
 import { ProgressSpinner } from 'primereact/progressspinner';
@@ -23,6 +24,7 @@ export default function DriversManagement() {
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [creating, setCreating] = useState(false);
   const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState(null);
   const [page, setPage] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
   const [createForm, setCreateForm] = useState({ name: '', email: '', password: '', is_active: true });
@@ -39,7 +41,7 @@ export default function DriversManagement() {
     const load = async () => {
       setLoading(true);
       try {
-        const result = await fetchUsers({ role_name: 'conductor', per_page: 10, page, search: debouncedQuery });
+        const result = await fetchUsers({ per_page: 10, page, search: debouncedQuery, role_name: 'conductor', status: statusFilter });
         setUsers(result?.data || []);
         setTotalRecords(result?.total || 0);
       } catch (err) {
@@ -56,7 +58,7 @@ export default function DriversManagement() {
       }
     };
     load();
-  }, [page, debouncedQuery]);
+  }, [page, debouncedQuery, statusFilter]);
 
   const statusBody = (row) => {
     if (row.deleted_at) {
@@ -119,7 +121,16 @@ export default function DriversManagement() {
         ...response.user,
         is_active: activeState
       };
-      setUsers(users.map(u => u.id === editForm.id ? merged : u));
+      
+      if (statusFilter === 'active' && !activeState) {
+        setUsers(users.filter(u => u.id !== editForm.id));
+        setTotalRecords(prev => prev - 1);
+      } else if (statusFilter === 'inactive' && activeState) {
+        setUsers(users.filter(u => u.id !== editForm.id));
+        setTotalRecords(prev => prev - 1);
+      } else {
+        setUsers(users.map(u => u.id === editForm.id ? merged : u));
+      }
       setEditing(null);
       toast.current?.show({ severity: 'success', summary: 'Éxito', detail: 'Conductor actualizado correctamente' });
     } catch (err) {
@@ -138,7 +149,12 @@ export default function DriversManagement() {
     setLoading(true);
     try {
       await deleteUser(deleteConfirm);
-      setUsers(users.map(u => u.id === deleteConfirm ? { ...u, deleted_at: new Date().toISOString() } : u));
+      if (statusFilter === 'active' || statusFilter === 'inactive') {
+        setUsers(users.filter(u => u.id !== deleteConfirm));
+        setTotalRecords(prev => prev - 1);
+      } else {
+        setUsers(users.map(u => u.id === deleteConfirm ? { ...u, deleted_at: new Date().toISOString() } : u));
+      }
       setDeleteConfirm(null);
       toast.current?.show({ severity: 'success', summary: 'Suspendido', detail: 'Conductor suspendido correctamente' });
     } catch (err) {
@@ -153,7 +169,12 @@ export default function DriversManagement() {
     setLoading(true);
     try {
       await restoreUser(row.id);
-      setUsers(users.map(u => u.id === row.id ? { ...u, deleted_at: null } : u));
+      if (statusFilter === 'suspended') {
+        setUsers(users.filter(u => u.id !== row.id));
+        setTotalRecords(prev => prev - 1);
+      } else {
+        setUsers(users.map(u => u.id === row.id ? { ...u, deleted_at: null } : u));
+      }
       toast.current?.show({ severity: 'success', summary: 'Restaurado', detail: 'Conductor restaurado correctamente' });
     } catch (err) {
       console.error(err);
@@ -215,17 +236,32 @@ export default function DriversManagement() {
     <Toast ref={toast} />
     <div className="management-section">
       <div className="management-header">
-        <i className="pi pi-car" />
-        <div className="management-header-content">
-          <h2>Conductores</h2>
-          <p>Gestión de conductores y sus vehículos</p>
+        <div className="management-header-left">
+          <i className="pi pi-id-card" />
+          <div className="management-header-content">
+            <h2>Conductores</h2>
+            <p>Gestión de cuentas de conductores</p>
+          </div>
         </div>
+        <Button label="Nuevo Conductor" icon="pi pi-plus" className="p-button-primary" onClick={handleCreate} />
       </div>
 
       <Card className="management-table">
         <div className="management-toolbar">
           <h3>Lista de Conductores ({totalRecords})</h3>
-          <div className="management-toolbar-actions">
+          <div className="management-toolbar-filters">
+            <Dropdown 
+              value={statusFilter} 
+              options={[
+                { label: 'Todos', value: 'all' },
+                { label: 'Activos', value: 'active' },
+                { label: 'Inactivos / Suspendidos', value: 'inactive' }
+              ]}  
+              optionLabel="label"
+              optionValue="value"
+              onChange={(e) => { setStatusFilter(e.value); setPage(1); }} 
+              placeholder="Filtrar por estado" 
+            />
             <span className="p-input-icon-left">
               <i className="pi pi-search" />
               <InputText 
@@ -234,7 +270,6 @@ export default function DriversManagement() {
                 placeholder="Buscar por nombre o correo" 
               />
             </span>
-            <Button label="Nuevo Conductor" icon="pi pi-plus" className="p-button-primary" onClick={handleCreate} />
           </div>
         </div>
 

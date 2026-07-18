@@ -6,6 +6,7 @@ import { DataTable } from 'primereact/datatable';
 import { Dialog } from 'primereact/dialog';
 import { InputText } from 'primereact/inputtext';
 import { InputSwitch } from 'primereact/inputswitch';
+import { Dropdown } from 'primereact/dropdown';
 import { Toast } from 'primereact/toast';
 import { fetchUsers, createUserAdmin, updateUser, deleteUser, toggleUserStatus, restoreUser } from '../../services/adminService';
 import { ProgressSpinner } from 'primereact/progressspinner';
@@ -24,6 +25,7 @@ export default function AdminsManagement() {
   const [createForm, setCreateForm] = useState({ name: '', email: '', password: '', is_active: true });
 
   const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState(null);
   const [page, setPage] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
 
@@ -39,7 +41,7 @@ export default function AdminsManagement() {
     const load = async () => {
       setLoading(true);
       try {
-        const result = await fetchUsers({ role_name: 'admin', per_page: 10, page, search: debouncedQuery });
+        const result = await fetchUsers({ per_page: 10, page, search: debouncedQuery, role_id: 1, status: statusFilter });
         setUsers(result?.data || []);
         setTotalRecords(result?.total || 0);
       } catch (err) {
@@ -56,7 +58,7 @@ export default function AdminsManagement() {
       }
     };
     load();
-  }, [page, debouncedQuery]);
+  }, [page, debouncedQuery, statusFilter]);
 
   const statusBody = (row) => {
     if (row.deleted_at) {
@@ -107,7 +109,17 @@ export default function AdminsManagement() {
         ...response.user,
         is_active: activeState
       };
-      setUsers(users.map(u => u.id === editForm.id ? merged : u));
+      
+      if (statusFilter === 'active' && !activeState) {
+        setUsers(users.filter(u => u.id !== editForm.id));
+        setTotalRecords(prev => prev - 1);
+      } else if (statusFilter === 'inactive' && activeState) {
+        setUsers(users.filter(u => u.id !== editForm.id));
+        setTotalRecords(prev => prev - 1);
+      } else {
+        setUsers(users.map(u => u.id === editForm.id ? merged : u));
+      }
+
       setEditing(null);
       toast.current?.show({ severity: 'success', summary: 'Éxito', detail: 'Administrador actualizado correctamente' });
     } catch (err) {
@@ -126,7 +138,12 @@ export default function AdminsManagement() {
     setLoading(true);
     try {
       await deleteUser(deleteConfirm);
-      setUsers(users.map(u => u.id === deleteConfirm ? { ...u, deleted_at: new Date().toISOString() } : u));
+      if (statusFilter === 'active' || statusFilter === 'inactive') {
+        setUsers(users.filter(u => u.id !== deleteConfirm));
+        setTotalRecords(prev => prev - 1);
+      } else {
+        setUsers(users.map(u => u.id === deleteConfirm ? { ...u, deleted_at: new Date().toISOString() } : u));
+      }
       setDeleteConfirm(null);
       toast.current?.show({ severity: 'success', summary: 'Suspendido', detail: 'Administrador suspendido correctamente' });
     } catch (err) {
@@ -141,7 +158,12 @@ export default function AdminsManagement() {
     setLoading(true);
     try {
       await restoreUser(row.id);
-      setUsers(users.map(u => u.id === row.id ? { ...u, deleted_at: null } : u));
+      if (statusFilter === 'suspended') {
+        setUsers(users.filter(u => u.id !== row.id));
+        setTotalRecords(prev => prev - 1);
+      } else {
+        setUsers(users.map(u => u.id === row.id ? { ...u, deleted_at: null } : u));
+      }
       toast.current?.show({ severity: 'success', summary: 'Restaurado', detail: 'Administrador restaurado correctamente' });
     } catch (err) {
       console.error(err);
@@ -201,17 +223,32 @@ export default function AdminsManagement() {
     <Toast ref={toast} />
     <div className="management-section">
       <div className="management-header">
-        <i className="pi pi-shield" />
-        <div className="management-header-content">
-          <h2>Administradores</h2>
-          <p>Gestión de cuentas administrativas del sistema</p>
+        <div className="management-header-left">
+          <i className="pi pi-shield" />
+          <div className="management-header-content">
+            <h2>Administradores</h2>
+            <p>Gestión de cuentas administrativas del sistema</p>
+          </div>
         </div>
+        <Button label="Nuevo Admin" icon="pi pi-plus" className="p-button-primary" onClick={handleCreate} />
       </div>
 
       <Card className="management-table">
         <div className="management-toolbar">
           <h3>Lista de Administradores ({totalRecords})</h3>
-          <div className="management-toolbar-actions">
+          <div className="management-toolbar-filters">
+            <Dropdown 
+              value={statusFilter} 
+              options={[
+                { label: 'Todos', value: 'all' },
+                { label: 'Activos', value: 'active' },
+                { label: 'Inactivos / Suspendidos', value: 'inactive' }
+              ]} 
+              optionLabel="label"
+              optionValue="value"
+              onChange={(e) => { setStatusFilter(e.value); setPage(1); }} 
+              placeholder="Filtrar por estado" 
+            />
             <span className="p-input-icon-left">
               <i className="pi pi-search" />
               <InputText 
@@ -220,7 +257,6 @@ export default function AdminsManagement() {
                 placeholder="Buscar por nombre o correo" 
               />
             </span>
-            <Button label="Nuevo Admin" icon="pi pi-plus" className="p-button-primary" onClick={handleCreate} />
           </div>
         </div>
 

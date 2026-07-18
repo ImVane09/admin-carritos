@@ -14,6 +14,7 @@ const menu = [
   { to: '/management/drivers', label: 'Conductores', icon: 'pi pi-car', nested: true },
   { to: '/management/passengers', label: 'Pasajeros', icon: 'pi pi-users', nested: true },
   { to: '/management/destinations', label: 'Destinos', icon: 'pi pi-map-marker', nested: true },
+  { to: '/management/vehicles', label: 'Carritos', icon: 'pi pi-car', nested: true },
   { to: '/management/trips', label: 'Historial de Viajes', icon: 'pi pi-history', nested: true },
 ];
 

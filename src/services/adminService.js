@@ -129,8 +129,35 @@ export async function restoreDestination(id) {
 /**
  * Obtiene las estadísticas resumidas del dashboard de forma eficiente
  */
-export async function fetchDashboardStats() {
-  const { data } = await api.get('/dashboard/stats');
+export async function fetchDashboardStats(params = {}) {
+  const { data } = await api.get('/dashboard/stats', { params });
+  return data;
+}
+
+// --- CRUD de Vehículos (Carritos) ---
+
+export async function fetchVehicles(params = {}) {
+  const { data } = await api.get('/vehicles', { params });
+  return data;
+}
+
+export async function createVehicle(payload) {
+  const { data } = await api.post('/vehicles', payload);
+  return data;
+}
+
+export async function updateVehicle(id, payload) {
+  const { data } = await api.put(`/vehicles/${id}`, payload);
+  return data;
+}
+
+export async function deleteVehicle(id) {
+  const { data } = await api.delete(`/vehicles/${id}`);
+  return data;
+}
+
+export async function toggleVehicleStatus(id) {
+  const { data } = await api.patch(`/vehicles/${id}/toggle-status`);
   return data;
 }
 
@@ -187,8 +214,8 @@ export async function fetchRoutesPerformanceReport() {
 /**
  * Obtiene el resumen consolidado de todas las métricas de reportes en una sola llamada de red
  */
-export async function fetchReportsAllSummary() {
-  const { data } = await api.get('/reports/all-summary');
+export async function fetchReportsAllSummary(params = {}) {
+  const { data } = await api.get('/reports/all-summary', { params });
   return data;
 }
 

@@ -6,6 +6,7 @@ import { DataTable } from 'primereact/datatable';
 import { Dialog } from 'primereact/dialog';
 import { InputText } from 'primereact/inputtext';
 import { InputTextarea } from 'primereact/inputtextarea';
+import { Dropdown } from 'primereact/dropdown';
 import { Toast } from 'primereact/toast';
 import { ProgressSpinner } from 'primereact/progressspinner';
 import DestinationMapPicker from '../../components/DestinationMapPicker';
@@ -77,6 +78,7 @@ export default function DestinationsManagement() {
   const [form, setForm] = useState(EMPTY_FORM);
 
   const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState(null);
   const [page, setPage] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
 
@@ -93,7 +95,7 @@ export default function DestinationsManagement() {
       setLoading(true);
 
       try {
-        const result = await fetchDestinations({ per_page: 10, page, search: debouncedQuery });
+        const result = await fetchDestinations({ per_page: 10, page, search: debouncedQuery, is_active: statusFilter });
         const dataArray = result?.data || [];
         const normalized = dataArray.map(normalizeDestination).filter((destination) =>
           Number.isFinite(destination.latitude) && Number.isFinite(destination.longitude)
@@ -111,7 +113,7 @@ export default function DestinationsManagement() {
     };
 
     load();
-  }, [page, debouncedQuery]);
+  }, [page, debouncedQuery, statusFilter]);
 
   const openCreate = () => {
     setForm({
@@ -254,26 +256,40 @@ export default function DestinationsManagement() {
 
       <div className="management-section">
         <div className="management-header">
-          <i className="pi pi-map-marker" />
-          <div className="management-header-content">
-            <h2>Destinos</h2>
-            <p>Administración de puntos predeterminados y destinos nuevos</p>
+          <div className="management-header-left">
+            <i className="pi pi-map-marker" />
+            <div className="management-header-content">
+              <h2>Destinos Paradas</h2>
+              <p>Gestión de puntos de parada y rutas</p>
+            </div>
           </div>
+          <Button label="Nuevo Destino" icon="pi pi-plus" className="p-button-primary" onClick={openCreate} />
         </div>
 
         <Card className="management-table">
           <div className="management-toolbar">
             <h3>Lista de Destinos ({totalRecords})</h3>
-            <div className="management-toolbar-actions">
+            <div className="management-toolbar-filters">
+              <Dropdown 
+                value={statusFilter} 
+                options={[
+                  { label: 'Todos', value: null },
+                  { label: 'Activos', value: true },
+                  { label: 'Inactivos', value: false }
+                ]} 
+                optionLabel="label"
+                optionValue="value"
+                onChange={(e) => { setStatusFilter(e.value); setPage(1); }} 
+                placeholder="Filtrar por estado" 
+              />
               <span className="p-input-icon-left">
                 <i className="pi pi-search" />
-                <InputText
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Buscar por nombre o descripción"
+                <InputText 
+                  value={query} 
+                  onChange={(e) => setQuery(e.target.value)} 
+                  placeholder="Buscar por nombre o descripción" 
                 />
               </span>
-              <Button label="Nuevo Destino" icon="pi pi-plus" className="p-button-primary" onClick={openCreate} />
             </div>
           </div>
 

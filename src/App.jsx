@@ -12,6 +12,7 @@ const AdminsManagement = lazy(() => import('./pages/management/AdminsManagement'
 const DriversManagement = lazy(() => import('./pages/management/DriversManagement'));
 const PassengersManagement = lazy(() => import('./pages/management/PassengersManagement'));
 const DestinationsManagement = lazy(() => import('./pages/management/DestinationsManagement'));
+const VehiclesManagement = lazy(() => import('./pages/management/VehiclesManagement'));
 const TripsHistoryManagement = lazy(() => import('./pages/management/TripsHistoryManagement'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const ReportsPage = lazy(() => import('./pages/ReportsPage'));
@@ -75,6 +76,7 @@ function App() {
               <Route path="management/drivers" element={<DriversManagement />} />
               <Route path="management/passengers" element={<PassengersManagement />} />
               <Route path="management/destinations" element={<DestinationsManagement />} />
+              <Route path="management/vehicles" element={<VehiclesManagement />} />
               <Route path="management/trips" element={<TripsHistoryManagement />} />
             </Route>
 

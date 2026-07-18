@@ -7,6 +7,7 @@ import { Dialog } from "primereact/dialog";
 import { InputText } from "primereact/inputtext";
 import { Toast } from "primereact/toast";
 import { ProgressSpinner } from "primereact/progressspinner";
+import { Dropdown } from "primereact/dropdown";
 import { fetchTrips } from "../../services/adminService";
 
 function formatDate(value) {
@@ -30,6 +31,7 @@ export default function TripsHistoryManagement() {
   const [selected, setSelected] = useState(null);
 
   const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [page, setPage] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
 
@@ -45,7 +47,11 @@ export default function TripsHistoryManagement() {
     const load = async () => {
       setLoading(true);
       try {
-        const result = await fetchTrips({ per_page: 10, page, search: debouncedQuery });
+        const params = { per_page: 10, page, search: debouncedQuery };
+        if (statusFilter && statusFilter !== 'all') {
+          params.state_name = statusFilter;
+        }
+        const result = await fetchTrips(params);
         setTrips(result?.data || []);
         setTotalRecords(result?.total || 0);
       } catch (err) {
@@ -63,7 +69,7 @@ export default function TripsHistoryManagement() {
     };
 
     load();
-  }, [page, debouncedQuery]);
+  }, [page, debouncedQuery, statusFilter]);
 
 
 
@@ -177,20 +183,35 @@ export default function TripsHistoryManagement() {
 
       <div className="management-section">
         <div className="management-header">
-          <i className="pi pi-history" />
-          <div className="management-header-content">
-            <h2>Historial de Viajes</h2>
-            <p>
-              Auditoría de trayectos, conductores asignados, distancias y
-              opiniones de pasajeros
-            </p>
+          <div className="management-header-left">
+            <i className="pi pi-history" style={{ color: 'white' }} />
+            <div className="management-header-content">
+              <h2>Historial de Viajes</h2>
+              <p>
+                Auditoría de trayectos, conductores asignados, distancias y
+                opiniones de pasajeros
+              </p>
+            </div>
           </div>
         </div>
 
         <Card className="management-table">
           <div className="management-toolbar">
             <h3>Lista de Viajes ({totalRecords})</h3>
-            <div className="management-toolbar-actions">
+            <div className="management-toolbar-filters">
+              <Dropdown 
+                value={statusFilter} 
+                options={[
+                  { label: 'Todos', value: 'all' },
+                  { label: 'Solicitado', value: 'SOLICITADO' },
+                  { label: 'Aceptado', value: 'ACEPTADO' },
+                  { label: 'Terminado', value: 'TERMINADO' },
+                  { label: 'En curso', value: 'INICIADO' },
+                  { label: 'Cancelado', value: 'CANCELADO' }
+                ]} 
+                onChange={(e) => { setStatusFilter(e.value); setPage(1); }} 
+                placeholder="Filtrar por estado" 
+              />
               <span className="p-input-icon-left">
                 <i className="pi pi-search" />
                 <InputText
@@ -219,42 +240,50 @@ export default function TripsHistoryManagement() {
             <Column
               field="id"
               header="ID Viaje"
-              sortable
               style={{ width: "7%" }}
             />
             <Column
-              header="Pasajero"
+              header="Pasajeros"
               body={(row) => (
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.5rem",
-                  }}
-                >
-                  <div
-                    style={{
-                      width: "1.85rem",
-                      height: "1.85rem",
-                      borderRadius: "50%",
-                      background: "#e8f5e9",
-                      color: "#2e7d32",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontWeight: 700,
-                      fontSize: "0.85rem",
-                    }}
-                  >
-                    {(row.passenger?.name || "P").slice(0, 1).toUpperCase()}
-                  </div>
-                  <span style={{ fontWeight: 600 }}>
-                    {row.passenger?.name || "Desconocido"}
-                  </span>
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+                  {row.passengers && row.passengers.length > 0 ? (
+                    row.passengers.map((p) => (
+                      <div
+                        key={p.id}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "0.5rem",
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: "1.5rem",
+                            height: "1.5rem",
+                            borderRadius: "50%",
+                            background: "#e8f5e9",
+                            color: "#2e7d32",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontWeight: 700,
+                            fontSize: "0.75rem",
+                          }}
+                        >
+                          {(p.name || "P").slice(0, 1).toUpperCase()}
+                        </div>
+                        <span style={{ fontWeight: 600, fontSize: "0.85rem" }}>
+                          {p.name || "Desconocido"}
+                        </span>
+                      </div>
+                    ))
+                  ) : (
+                    <span style={{ color: "#999", fontStyle: "italic", fontSize: "0.85rem" }}>
+                      Sin pasajeros
+                    </span>
+                  )}
                 </div>
               )}
-              sortable
-              sortField="passenger.name"
             />
             <Column
               header="Conductor"
@@ -291,8 +320,6 @@ export default function TripsHistoryManagement() {
                   </span>
                 )
               }
-              sortable
-              sortField="driver.name"
             />
             <Column
               header="Origen"
@@ -362,14 +389,10 @@ export default function TripsHistoryManagement() {
             <Column
               header="Fecha Solicitud"
               body={(row) => formatDate(row.created_at)}
-              sortable
-              sortField="created_at"
             />
             <Column
               header="Estado"
               body={(row) => getStatusBadge(row.state_id, row.state?.state_name)}
-              sortable
-              sortField="state_id"
             />
             <Column
               header="Acciones"
@@ -527,37 +550,62 @@ export default function TripsHistoryManagement() {
                       marginBottom: "0.5rem",
                     }}
                   >
-                    Pasajero
+                    Pasajeros ({selected.passengers?.length || 0})
                   </strong>
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.5rem",
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: "2rem",
-                        height: "2rem",
-                        borderRadius: "50%",
-                        background: "#e8f5e9",
-                        color: "#2e7d32",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontWeight: 700,
-                      }}
-                    >
-                      {(selected.passenger?.name || "P")
-                        .slice(0, 1)
-                        .toUpperCase()}
-                    </div>
-                    <div>
-                      <span style={{ fontWeight: 600, display: "block" }}>
-                        {selected.passenger?.name || "Desconocido"}
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                    {selected.passengers && selected.passengers.length > 0 ? (
+                      selected.passengers.map((p) => (
+                        <div
+                          key={p.id}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "0.5rem",
+                            }}
+                          >
+                            <div
+                              style={{
+                                width: "1.75rem",
+                                height: "1.75rem",
+                                borderRadius: "50%",
+                                background: "#e8f5e9",
+                                color: "#2e7d32",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                fontWeight: 700,
+                                fontSize: "0.8rem",
+                              }}
+                            >
+                              {(p.name || "P").slice(0, 1).toUpperCase()}
+                            </div>
+                            <span style={{ fontWeight: 600, fontSize: "0.9rem" }}>
+                              {p.name || "Desconocido"}
+                            </span>
+                          </div>
+                          <span style={{ 
+                            fontSize: "0.75rem", 
+                            padding: "2px 6px", 
+                            borderRadius: "10px", 
+                            background: p.pivot?.status === 'cancelled' ? '#ffebee' : '#e3f2fd',
+                            color: p.pivot?.status === 'cancelled' ? '#c62828' : '#1565c0'
+                          }}>
+                            {p.pivot?.status || 'desconocido'}
+                          </span>
+                        </div>
+                      ))
+                    ) : (
+                      <span style={{ color: "#94a3b8", fontStyle: "italic", fontSize: "0.85rem" }}>
+                        Sin pasajeros registrados
                       </span>
-                    </div>
+                    )}
                   </div>
                 </div>
 
