@@ -2,9 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { Card } from 'primereact/card';
 import { Tag } from 'primereact/tag';
 import { ProgressSpinner } from 'primereact/progressspinner';
-import { fetchDestinations, fetchDrivers, fetchDashboardStats } from '../services/adminService';
+import { fetchDestinations, fetchDrivers, fetchDashboardStats, fetchHourlyReport } from '../services/adminService';
 import DashboardLiveMap from '../components/DashboardLiveMap';
 import { createEcho } from '../services/echoService';
+import { Chart } from 'primereact/chart';
 
 const CAMPUS_CENTER = [-0.9525, -80.7450];
 
@@ -34,6 +35,7 @@ export default function DashboardPage() {
   const [stats, setStats] = useState({ users: 0, drivers: 0, trips: 0, active: 0, completed: 0, destinations: 0 });
   const [drivers, setDrivers] = useState([]);
   const [destinations, setDestinations] = useState([]);
+  const [hourlyData, setHourlyData] = useState(null);
   const [lastUpdate, setLastUpdate] = useState(null);
 
   const activeDrivers = useMemo(() => {
@@ -58,13 +60,31 @@ export default function DashboardPage() {
     const loadDynamicData = async (isInitial = false) => {
       if (isInitial) setStatsLoading(true);
       try {
-        const [dashboardStats, driversList] = await Promise.all([
+        const [dashboardStats, driversList, hourlyReport] = await Promise.all([
           fetchDashboardStats(),
           fetchDrivers(),
+          fetchHourlyReport(),
         ]);
         
         setStats(dashboardStats);
         setDrivers(driversList);
+        
+        if (hourlyReport) {
+          setHourlyData({
+            labels: hourlyReport.labels || [],
+            datasets: [
+              {
+                label: 'Viajes Completados',
+                data: hourlyReport.data || [],
+                fill: true,
+                borderColor: '#1E88E5',
+                tension: 0.4,
+                backgroundColor: 'rgba(30, 136, 229, 0.1)'
+              }
+            ]
+          });
+        }
+        
         setLastUpdate(new Date());
       } catch (error) {
         console.error('Error al cargar datos en tiempo real del dashboard:', error);
@@ -113,18 +133,35 @@ export default function DashboardPage() {
             }
           });
         });
+
+        // Escuchar cambios en las estadísticas del dashboard
+        const publicChannel = echoInstance.channel('dashboard.stats');
+        publicChannel.listen('.DashboardStatsUpdated', (event) => {
+          console.log('Estadísticas actualizadas por WS:', event);
+          if (event.stats) {
+            setStats(event.stats);
+          }
+          if (event.hourly) {
+            setHourlyData({
+              labels: event.hourly.labels || [],
+              datasets: [{
+                label: 'Viajes Completados',
+                data: event.hourly.data || [],
+                fill: true,
+                borderColor: '#1E88E5',
+                tension: 0.4,
+                backgroundColor: 'rgba(30, 136, 229, 0.1)'
+              }]
+            });
+          }
+          setLastUpdate(new Date());
+        });
       } catch (wsError) {
         console.error('Error al inicializar la conexión de WebSockets:', wsError);
       }
     }
 
-    // 4. Polling de respaldo cada 20 segundos (antes 15 segundos)
-    const interval = setInterval(() => {
-      loadDynamicData(false);
-    }, 20000);
-
     return () => {
-      clearInterval(interval);
       if (echoInstance) {
         console.log('Desconectando instancia de Laravel Echo...');
         echoInstance.disconnect();
@@ -228,6 +265,23 @@ export default function DashboardPage() {
               )}
             </div>
           </div>
+        </div>
+
+        {/* Gráfico de Tendencias Horarias */}
+        <div style={{ marginTop: '2rem', borderTop: '1px solid var(--border-color)', paddingTop: '1.5rem' }}>
+          <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--primary-main)', marginBottom: '1rem', marginTop: 0 }}>
+            <i className="pi pi-chart-line" style={{ marginRight: '0.5rem' }}></i>
+            Tendencia de Viajes (Últimas 24h)
+          </h3>
+          {hourlyData ? (
+            <div style={{ height: '300px' }}>
+              <Chart type="line" data={hourlyData} options={{ maintainAspectRatio: false, responsive: true, plugins: { legend: { display: false } } }} style={{ height: '100%' }} />
+            </div>
+          ) : (
+            <div style={{ height: '300px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+              <ProgressSpinner style={{ width: '40px', height: '40px' }} strokeWidth="5" />
+            </div>
+          )}
         </div>
       </Card>
     </div>

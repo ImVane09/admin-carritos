@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { ProgressSpinner } from 'primereact/progressspinner';
 import ProtectedRoute from './components/ProtectedRoute';
+import PermissionRoute from './components/PermissionRoute';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import AdminLayout from './layout/AdminLayout';
 
@@ -15,7 +16,9 @@ const DestinationsManagement = lazy(() => import('./pages/management/Destination
 const VehiclesManagement = lazy(() => import('./pages/management/VehiclesManagement'));
 const TripsHistoryManagement = lazy(() => import('./pages/management/TripsHistoryManagement'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
-const ReportsPage = lazy(() => import('./pages/ReportsPage'));
+const DriverReport = lazy(() => import('./pages/reports/DriverReport'));
+const RouteReport = lazy(() => import('./pages/reports/RouteReport'));
+const PassengerReport = lazy(() => import('./pages/reports/PassengerReport'));
 
 function PublicRoute({ children }) {
   const { user, loading } = useAuth();
@@ -68,16 +71,66 @@ function App() {
                 </ProtectedRoute>
               }
             >
-              <Route index element={<DashboardPage />} />
-              <Route path="users" element={<UsersPage />} />
-              <Route path="reports" element={<ReportsPage />} />
-              <Route path="management" element={<ManagementPage />} />
-              <Route path="management/admins" element={<AdminsManagement />} />
-              <Route path="management/drivers" element={<DriversManagement />} />
-              <Route path="management/passengers" element={<PassengersManagement />} />
-              <Route path="management/destinations" element={<DestinationsManagement />} />
-              <Route path="management/vehicles" element={<VehiclesManagement />} />
-              <Route path="management/trips" element={<TripsHistoryManagement />} />
+              <Route index element={
+                <PermissionRoute permission="view_dashboard">
+                  <DashboardPage />
+                </PermissionRoute>
+              } />
+              <Route path="users" element={
+                <PermissionRoute permission="manage_users">
+                  <UsersPage />
+                </PermissionRoute>
+              } />
+              <Route path="reports/drivers" element={
+                <PermissionRoute permission="view_driver_reports">
+                  <DriverReport />
+                </PermissionRoute>
+              } />
+              <Route path="reports/routes" element={
+                <PermissionRoute permission="view_route_reports">
+                  <RouteReport />
+                </PermissionRoute>
+              } />
+              <Route path="reports/passengers" element={
+                <PermissionRoute permission="view_passenger_reports">
+                  <PassengerReport />
+                </PermissionRoute>
+              } />
+              <Route path="management" element={
+                <PermissionRoute permission="manage_users">
+                  <ManagementPage />
+                </PermissionRoute>
+              } />
+              <Route path="management/admins" element={
+                <PermissionRoute permission="manage_users">
+                  <AdminsManagement />
+                </PermissionRoute>
+              } />
+              <Route path="management/drivers" element={
+                <PermissionRoute permission="manage_users">
+                  <DriversManagement />
+                </PermissionRoute>
+              } />
+              <Route path="management/passengers" element={
+                <PermissionRoute permission="manage_users">
+                  <PassengersManagement />
+                </PermissionRoute>
+              } />
+              <Route path="management/destinations" element={
+                <PermissionRoute permission="manage_users">
+                  <DestinationsManagement />
+                </PermissionRoute>
+              } />
+              <Route path="management/vehicles" element={
+                <PermissionRoute permission="manage_users">
+                  <VehiclesManagement />
+                </PermissionRoute>
+              } />
+              <Route path="management/trips" element={
+                <PermissionRoute permission="view_dashboard">
+                  <TripsHistoryManagement />
+                </PermissionRoute>
+              } />
             </Route>
 
             <Route path="*" element={<Navigate to="/" replace />} />

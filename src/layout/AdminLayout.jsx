@@ -6,16 +6,19 @@ import { useAuth } from '../context/AuthContext';
 
 const menu = [
   { section: 'Monitoreo' },
-  { to: '/', label: 'Dashboard', icon: 'pi pi-home' },
-  { to: '/users', label: 'Usuarios', icon: 'pi pi-users' },
-  { to: '/reports', label: 'Reportes', icon: 'pi pi-chart-bar' },
-  { section: 'Gestión General', collapsible: true },
-  { to: '/management/admins', label: 'Administradores', icon: 'pi pi-shield', nested: true },
-  { to: '/management/drivers', label: 'Conductores', icon: 'pi pi-car', nested: true },
-  { to: '/management/passengers', label: 'Pasajeros', icon: 'pi pi-users', nested: true },
-  { to: '/management/destinations', label: 'Destinos', icon: 'pi pi-map-marker', nested: true },
-  { to: '/management/vehicles', label: 'Carritos', icon: 'pi pi-car', nested: true },
-  { to: '/management/trips', label: 'Historial de Viajes', icon: 'pi pi-history', nested: true },
+  { to: '/', label: 'Dashboard', icon: 'pi pi-home', permission: 'view_dashboard' },
+  { to: '/users', label: 'Usuarios', icon: 'pi pi-users', permission: 'manage_users' },
+  { section: 'Reportes', collapsible: true },
+  { to: '/reports/drivers', label: 'Conductores', icon: 'pi pi-car', permission: 'view_driver_reports', nested: true },
+  { to: '/reports/routes', label: 'Rutas', icon: 'pi pi-map', permission: 'view_route_reports', nested: true },
+  { to: '/reports/passengers', label: 'Pasajeros', icon: 'pi pi-users', permission: 'view_passenger_reports', nested: true },
+  { section: 'Gestión General', collapsible: true, permission: 'manage_users' },
+  { to: '/management/admins', label: 'Administradores', icon: 'pi pi-shield', nested: true, permission: 'manage_users' },
+  { to: '/management/drivers', label: 'Conductores', icon: 'pi pi-car', nested: true, permission: 'manage_users' },
+  { to: '/management/passengers', label: 'Pasajeros', icon: 'pi pi-users', nested: true, permission: 'manage_users' },
+  { to: '/management/destinations', label: 'Destinos', icon: 'pi pi-map-marker', nested: true, permission: 'manage_users' },
+  { to: '/management/vehicles', label: 'Carritos', icon: 'pi pi-car', nested: true, permission: 'manage_users' },
+  { to: '/management/trips', label: 'Historial de Viajes', icon: 'pi pi-history', nested: true, permission: 'view_dashboard' },
 ];
 
 export default function AdminLayout() {
@@ -26,6 +29,12 @@ export default function AdminLayout() {
   const onLogout = () => {
     logout();
     navigate('/', { replace: true });
+  };
+
+  const hasPermission = (permissionName) => {
+    if (!permissionName) return true;
+    if (user?.id === 1) return true;
+    return user?.permissions?.includes(permissionName);
   };
 
   return (
@@ -53,6 +62,10 @@ export default function AdminLayout() {
 
         <nav className="menu">
           {menu.map((item, idx) => {
+            if (item.permission && !hasPermission(item.permission)) {
+              return null;
+            }
+
             if (item.section) {
               const isCollapsible = item.collapsible;
               if (isCollapsible) {

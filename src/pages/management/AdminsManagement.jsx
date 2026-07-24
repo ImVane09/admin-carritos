@@ -8,9 +8,20 @@ import { InputText } from 'primereact/inputtext';
 import { InputSwitch } from 'primereact/inputswitch';
 import { Dropdown } from 'primereact/dropdown';
 import { Toast } from 'primereact/toast';
+import { Checkbox } from 'primereact/checkbox';
 import { fetchUsers, createUserAdmin, updateUser, deleteUser, toggleUserStatus, restoreUser } from '../../services/adminService';
 import { ProgressSpinner } from 'primereact/progressspinner';
 import { useRef } from 'react';
+
+const PERMISSIONS_LIST = [
+  { id: 1, name: 'view_dashboard', label: 'Ver Dashboard' },
+  { id: 2, name: 'view_driver_reports', label: 'Ver Reportes de Conductores' },
+  { id: 3, name: 'view_route_reports', label: 'Ver Reportes de Rutas' },
+  { id: 4, name: 'view_passenger_reports', label: 'Ver Reportes de Pasajeros' },
+  { id: 5, name: 'manage_users', label: 'Gestionar Usuarios' },
+  { id: 6, name: 'manage_vehicles', label: 'Gestionar Vehículos' },
+  { id: 7, name: 'manage_destinations', label: 'Gestionar Destinos' }
+];
 
 export default function AdminsManagement() {
   const toast = useRef(null);
@@ -22,7 +33,17 @@ export default function AdminsManagement() {
   const [editForm, setEditForm] = useState({});
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [creating, setCreating] = useState(false);
-  const [createForm, setCreateForm] = useState({ name: '', email: '', password: '', is_active: true });
+  const [createForm, setCreateForm] = useState({ name: '', email: '', password: '', is_active: true, permissions: [] });
+
+  const onPermissionChange = (e, formState, setFormState) => {
+    let selectedPermissions = [...formState.permissions];
+    if (e.checked) {
+      selectedPermissions.push(e.value);
+    } else {
+      selectedPermissions = selectedPermissions.filter((val) => val !== e.value);
+    }
+    setFormState({ ...formState, permissions: selectedPermissions });
+  };
 
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState(null);
@@ -73,7 +94,10 @@ export default function AdminsManagement() {
 
   const handleEdit = (row) => {
     setEditing(row.id);
-    setEditForm({ ...row, password: '' });
+    const userPerms = row.permissions || [];
+    // Convert names to IDs
+    const permIds = PERMISSIONS_LIST.filter(p => userPerms.includes(p.name)).map(p => p.id);
+    setEditForm({ ...row, password: '', permissions: permIds });
   };
 
   const handleSave = async () => {
@@ -87,7 +111,8 @@ export default function AdminsManagement() {
       // 1. Guardar cambios en el backend (nombre, correo y opcionalmente contraseña)
       const payload = {
         name: editForm.name,
-        email: editForm.email
+        email: editForm.email,
+        permissions: editForm.permissions || []
       };
       if (editForm.password?.trim()) {
         payload.password = editForm.password.trim();
@@ -175,7 +200,7 @@ export default function AdminsManagement() {
 
   const handleCreate = () => {
     setCreating(true);
-    setCreateForm({ name: '', email: '', password: '', is_active: true });
+    setCreateForm({ name: '', email: '', password: '', is_active: true, permissions: [] });
   };
 
   const handleCreateSave = async () => {
@@ -194,6 +219,7 @@ export default function AdminsManagement() {
         name: createForm.name.trim(),
         email: createForm.email.trim(),
         password: createForm.password.trim(),
+        permissions: createForm.permissions || []
       });
 
       const merged = {
@@ -448,6 +474,27 @@ export default function AdminsManagement() {
                 onChange={(e) => setEditForm({ ...editForm, is_active: e.value })}
               />
             </div>
+            
+            <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem' }}><strong>Permisos Especiales</strong></label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {PERMISSIONS_LIST.map((permission) => (
+                  <div key={permission.id} style={{ display: 'flex', alignItems: 'center' }}>
+                    <Checkbox
+                      inputId={`perm-${permission.id}`}
+                      name="permission"
+                      value={permission.id}
+                      onChange={(e) => onPermissionChange(e, editForm, setEditForm)}
+                      checked={editForm.permissions?.includes(permission.id)}
+                    />
+                    <label htmlFor={`perm-${permission.id}`} style={{ marginLeft: '0.5rem', fontSize: '0.9rem', cursor: 'pointer' }}>
+                      {permission.label}
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
               <Button label="Cancelar" onClick={() => setEditing(null)} className="p-button-text" />
               <Button label="Guardar" onClick={handleSave} className="p-button-primary" />
@@ -563,6 +610,26 @@ export default function AdminsManagement() {
               className="w-full"
               placeholder="Mínimo 8 caracteres"
             />
+          </div>
+
+          <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
+            <label style={{ display: 'block', marginBottom: '0.5rem' }}><strong>Permisos Especiales</strong></label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              {PERMISSIONS_LIST.map((permission) => (
+                <div key={permission.id} style={{ display: 'flex', alignItems: 'center' }}>
+                  <Checkbox
+                    inputId={`cperm-${permission.id}`}
+                    name="permission"
+                    value={permission.id}
+                    onChange={(e) => onPermissionChange(e, createForm, setCreateForm)}
+                    checked={createForm.permissions?.includes(permission.id)}
+                  />
+                  <label htmlFor={`cperm-${permission.id}`} style={{ marginLeft: '0.5rem', fontSize: '0.9rem', cursor: 'pointer' }}>
+                    {permission.label}
+                  </label>
+                </div>
+              ))}
+            </div>
           </div>
 
           <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
