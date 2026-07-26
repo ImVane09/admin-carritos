@@ -102,7 +102,7 @@ function App() {
                 </PermissionRoute>
               } />
               <Route path="management/admins" element={
-                <PermissionRoute permission="manage_users">
+                <PermissionRoute permission="manage_admins">
                   <AdminsManagement />
                 </PermissionRoute>
               } />
@@ -117,17 +117,17 @@ function App() {
                 </PermissionRoute>
               } />
               <Route path="management/destinations" element={
-                <PermissionRoute permission="manage_users">
+                <PermissionRoute permission="manage_destinations">
                   <DestinationsManagement />
                 </PermissionRoute>
               } />
               <Route path="management/vehicles" element={
-                <PermissionRoute permission="manage_users">
+                <PermissionRoute permission="manage_vehicles">
                   <VehiclesManagement />
                 </PermissionRoute>
               } />
               <Route path="management/trips" element={
-                <PermissionRoute permission="view_dashboard">
+                <PermissionRoute permission="view_history">
                   <TripsHistoryManagement />
                 </PermissionRoute>
               } />

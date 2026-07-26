@@ -19,8 +19,10 @@ const PERMISSIONS_LIST = [
   { id: 3, name: 'view_route_reports', label: 'Ver Reportes de Rutas' },
   { id: 4, name: 'view_passenger_reports', label: 'Ver Reportes de Pasajeros' },
   { id: 5, name: 'manage_users', label: 'Gestionar Usuarios' },
-  { id: 6, name: 'manage_vehicles', label: 'Gestionar Vehículos' },
-  { id: 7, name: 'manage_destinations', label: 'Gestionar Destinos' }
+  { id: 6, name: 'manage_admins', label: 'Gestionar Administradores' },
+  { id: 7, name: 'manage_vehicles', label: 'Gestionar Vehículos' },
+  { id: 8, name: 'manage_destinations', label: 'Gestionar Destinos' },
+  { id: 9, name: 'view_history', label: 'Ver Historial de Viajes' }
 ];
 
 export default function AdminsManagement() {

@@ -12,13 +12,13 @@ const menu = [
   { to: '/reports/drivers', label: 'Conductores', icon: 'pi pi-car', permission: 'view_driver_reports', nested: true },
   { to: '/reports/routes', label: 'Rutas', icon: 'pi pi-map', permission: 'view_route_reports', nested: true },
   { to: '/reports/passengers', label: 'Pasajeros', icon: 'pi pi-users', permission: 'view_passenger_reports', nested: true },
-  { section: 'Gestión General', collapsible: true, permission: 'manage_users' },
-  { to: '/management/admins', label: 'Administradores', icon: 'pi pi-shield', nested: true, permission: 'manage_users' },
+  { section: 'Gestión General', collapsible: true, permission: ['manage_users', 'manage_admins', 'manage_vehicles', 'manage_destinations', 'view_history'] },
+  { to: '/management/admins', label: 'Administradores', icon: 'pi pi-shield', nested: true, permission: 'manage_admins' },
   { to: '/management/drivers', label: 'Conductores', icon: 'pi pi-car', nested: true, permission: 'manage_users' },
   { to: '/management/passengers', label: 'Pasajeros', icon: 'pi pi-users', nested: true, permission: 'manage_users' },
-  { to: '/management/destinations', label: 'Destinos', icon: 'pi pi-map-marker', nested: true, permission: 'manage_users' },
-  { to: '/management/vehicles', label: 'Carritos', icon: 'pi pi-car', nested: true, permission: 'manage_users' },
-  { to: '/management/trips', label: 'Historial de Viajes', icon: 'pi pi-history', nested: true, permission: 'view_dashboard' },
+  { to: '/management/destinations', label: 'Destinos', icon: 'pi pi-map-marker', nested: true, permission: 'manage_destinations' },
+  { to: '/management/vehicles', label: 'Carritos', icon: 'pi pi-car', nested: true, permission: 'manage_vehicles' },
+  { to: '/management/trips', label: 'Historial de Viajes', icon: 'pi pi-history', nested: true, permission: 'view_history' },
 ];
 
 export default function AdminLayout() {
@@ -34,6 +34,9 @@ export default function AdminLayout() {
   const hasPermission = (permissionName) => {
     if (!permissionName) return true;
     if (user?.id === 1) return true;
+    if (Array.isArray(permissionName)) {
+      return permissionName.some(p => user?.permissions?.includes(p));
+    }
     return user?.permissions?.includes(permissionName);
   };
 

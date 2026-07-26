@@ -223,3 +223,33 @@ export async function fetchReportsDriversSummary(params = {}) {
   const { data } = await api.get('/reports/drivers-summary', { params });
   return data;
 }
+
+export async function fetchReportsPassengersSummary(params = {}) {
+  const { data } = await api.get('/reports/passengers-summary', { params });
+  return data;
+}
+
+export const fetchReportsRoutesPerformance = async (params = {}) => {
+  try {
+    const response = await api.get('/reports/routes-performance', { params });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching routes performance:', error);
+    throw error;
+  }
+};
+
+export const fetchReportsTripsCoordinates = async (params = {}) => {
+  try {
+    const response = await api.get('/reports/trips-coordinates', { params });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching trips coordinates:', error);
+    throw error;
+  }
+};
+
+export async function fetchReportsRoutesSummary(params = {}) {
+  const { data } = await api.get('/reports/routes-details', { params });
+  return data;
+}

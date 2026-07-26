@@ -36,6 +36,8 @@ export default function DashboardPage() {
   const [drivers, setDrivers] = useState([]);
   const [destinations, setDestinations] = useState([]);
   const [hourlyData, setHourlyData] = useState(null);
+  const [cancellations, setCancellations] = useState([]);
+  const [waitTimes, setWaitTimes] = useState([]);
   const [lastUpdate, setLastUpdate] = useState(null);
 
   const activeDrivers = useMemo(() => {
@@ -68,6 +70,8 @@ export default function DashboardPage() {
         
         setStats(dashboardStats);
         setDrivers(driversList);
+        setCancellations(dashboardStats.cancellations || []);
+        setWaitTimes(dashboardStats.wait_times || []);
         
         if (hourlyReport) {
           setHourlyData({
@@ -103,7 +107,6 @@ export default function DashboardPage() {
         const channel = echoInstance.channel('drivers.live');
 
         channel.listen('.DriverGlobalLocationUpdated', (event) => {
-          console.log('Movimiento de conductor recibido por WS:', event);
           setDrivers((prevDrivers) => {
             const driverExists = prevDrivers.find((d) => d.id === event.driver_id);
             if (driverExists) {
@@ -134,12 +137,23 @@ export default function DashboardPage() {
           });
         });
 
+        channel.listen('.DriverOffline', (event) => {
+          setDrivers((prevDrivers) => {
+            return prevDrivers.map((d) =>
+              d.id === event.driver_id
+                ? { ...d, is_online: false }
+                : d
+            );
+          });
+        });
+
         // Escuchar cambios en las estadísticas del dashboard
         const publicChannel = echoInstance.channel('dashboard.stats');
         publicChannel.listen('.DashboardStatsUpdated', (event) => {
-          console.log('Estadísticas actualizadas por WS:', event);
           if (event.stats) {
             setStats(event.stats);
+            setCancellations(event.stats.cancellations || []);
+            setWaitTimes(event.stats.wait_times || []);
           }
           if (event.hourly) {
             setHourlyData({
@@ -163,11 +177,17 @@ export default function DashboardPage() {
 
     return () => {
       if (echoInstance) {
-        console.log('Desconectando instancia de Laravel Echo...');
         echoInstance.disconnect();
       }
     };
   }, []);
+
+  const totalCancellations = useMemo(() => cancellations.reduce((sum, item) => sum + parseInt(item.count || 0), 0), [cancellations]);
+  const avgWaitTime = useMemo(() => {
+    if (waitTimes.length === 0) return "0.0";
+    const sum = waitTimes.reduce((acc, item) => acc + parseFloat(item.avg_wait_minutes || 0), 0);
+    return (sum / waitTimes.length).toFixed(1);
+  }, [waitTimes]);
 
   return (
     <div className="dashboard-layout" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
@@ -191,12 +211,16 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Grid de Tarjetas de Estadísticas Moderno (con carga Inline) */}
       <div className="dashboard-grid-premium">
         <StatCardPremium title="Usuarios del Sistema" value={stats.users} icon="pi pi-users" tone="blue" subtitle="Cuentas registradas" loading={statsLoading} />
         <StatCardPremium title="Conductores" value={stats.drivers} icon="pi pi-car" tone="cyan" subtitle="Asignados a ruta" loading={statsLoading} />
         <StatCardPremium title="Destinos Campus" value={stats.destinations} icon="pi pi-map-marker" tone="green" subtitle="Puntos de parada" loading={statsLoading} />
         <StatCardPremium title="Historial de Viajes" value={stats.trips} icon="pi pi-history" tone="purple" subtitle="Total de viajes" loading={statsLoading} />
+        
+        <StatCardPremium title="Viajes Completados" value={stats.completed} icon="pi pi-check-circle" tone="blue" subtitle="Carreras exitosas" loading={statsLoading} />
+        <StatCardPremium title="Carritos en Línea" value={activeDrivers.length} icon="pi pi-bolt" tone="green" subtitle="Conductores activos" loading={statsLoading} />
+        <StatCardPremium title="Cancelaciones" value={totalCancellations} icon="pi pi-times-circle" tone="red" subtitle="Viajes anulados" loading={statsLoading} />
+        <StatCardPremium title="Espera Promedio" value={`${avgWaitTime} min`} icon="pi pi-clock" tone="amber" subtitle="Tiempo de atención" loading={statsLoading} />
       </div>
 
       {/* Panel Principal de Monitoreo */}
@@ -265,23 +289,6 @@ export default function DashboardPage() {
               )}
             </div>
           </div>
-        </div>
-
-        {/* Gráfico de Tendencias Horarias */}
-        <div style={{ marginTop: '2rem', borderTop: '1px solid var(--border-color)', paddingTop: '1.5rem' }}>
-          <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--primary-main)', marginBottom: '1rem', marginTop: 0 }}>
-            <i className="pi pi-chart-line" style={{ marginRight: '0.5rem' }}></i>
-            Tendencia de Viajes (Últimas 24h)
-          </h3>
-          {hourlyData ? (
-            <div style={{ height: '300px' }}>
-              <Chart type="line" data={hourlyData} options={{ maintainAspectRatio: false, responsive: true, plugins: { legend: { display: false } } }} style={{ height: '100%' }} />
-            </div>
-          ) : (
-            <div style={{ height: '300px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-              <ProgressSpinner style={{ width: '40px', height: '40px' }} strokeWidth="5" />
-            </div>
-          )}
         </div>
       </Card>
     </div>

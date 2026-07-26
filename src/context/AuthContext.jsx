@@ -44,7 +44,9 @@ export function AuthProvider({ children }) {
           const role = (parsedUser.role || '').toLowerCase();
           const roleId = parsedUser.role_id;
 
-          if (role !== 'admin' && role !== 'administrador' && roleId !== 1) {
+          const hasPermissions = Array.isArray(parsedUser.permissions) && parsedUser.permissions.length > 0;
+
+          if (role !== 'admin' && role !== 'administrador' && roleId !== 1 && !hasPermissions) {
             clearStoredSession();
             setUser(null);
           } else {
@@ -62,8 +64,10 @@ export function AuthProvider({ children }) {
           const role = (normalized.user.role || '').toLowerCase();
           const roleId = normalized.user.role_id;
 
-          if (role !== 'admin' && role !== 'administrador' && roleId !== 1) {
-            console.warn('Acceso denegado: El usuario no es administrador.');
+          const hasPermissions = Array.isArray(normalized.user.permissions) && normalized.user.permissions.length > 0;
+
+          if (role !== 'admin' && role !== 'administrador' && roleId !== 1 && !hasPermissions) {
+            console.warn('Acceso denegado: El usuario no tiene rol ni permisos suficientes.');
             clearStoredSession();
             setUser(null);
           } else {
@@ -98,8 +102,10 @@ export function AuthProvider({ children }) {
       const role = (normalized.user.role || '').toLowerCase();
       const roleId = normalized.user.role_id;
 
-      if (role !== 'admin' && role !== 'administrador' && roleId !== 1) {
-        throw new Error('Acceso denegado. Este panel es exclusivo para administradores.');
+      const hasPermissions = Array.isArray(normalized.user.permissions) && normalized.user.permissions.length > 0;
+
+      if (role !== 'admin' && role !== 'administrador' && roleId !== 1 && !hasPermissions) {
+        throw new Error('Acceso denegado. Este panel requiere rol de administrador o permisos específicos asignados.');
       }
 
       setUser(normalized.user);
