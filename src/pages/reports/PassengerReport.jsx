@@ -7,7 +7,7 @@ import { InputText } from "primereact/inputtext";
 import { Tag } from "primereact/tag";
 import { Calendar } from "primereact/calendar";
 import { Button } from "primereact/button";
-import { fetchReportsAllSummary, fetchReportsPassengersSummary } from "../../services/adminService";
+import { fetchReportsAllSummary, fetchReportsPassengersSummary, fetchComplaints } from "../../services/adminService";
 import { ProgressSpinner } from "primereact/progressspinner";
 
 export default function PassengerReport() {
@@ -72,6 +72,7 @@ export default function PassengerReport() {
 
       await fetchPaginatedPassengers(1, debouncedGlobalFilter);
       setPassengersPage(1);
+      
     } catch (error) {
       console.error("Error al cargar datos del reporte de pasajeros:", error);
     } finally {

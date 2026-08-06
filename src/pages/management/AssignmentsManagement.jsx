@@ -1,0 +1,421 @@
+import { useEffect, useRef, useState } from 'react';
+import { Button } from 'primereact/button';
+import { Card } from 'primereact/card';
+import { Column } from 'primereact/column';
+import { DataTable } from 'primereact/datatable';
+import { Dialog } from 'primereact/dialog';
+import { Dropdown } from 'primereact/dropdown';
+import { Toast } from 'primereact/toast';
+import { fetchDriverProfiles, createDriverProfile, updateDriverProfile, deleteDriverProfile, fetchUsers, fetchVehicles, fetchShifts } from '../../services/adminService';
+import { InputSwitch } from 'primereact/inputswitch';
+import { Skeleton } from 'primereact/skeleton';
+
+const EMPTY_FORM = { id: null, user_id: null, vehicle_id: null, shift_id: null, is_active: true };
+
+export default function AssignmentsManagement() {
+  const toast = useRef(null);
+  
+  const [profiles, setProfiles] = useState([]);
+  const [driversState, setDriversState] = useState({ items: [], total: 0, loading: false, page: 1 });
+  const [vehiclesState, setVehiclesState] = useState({ items: [], total: 0, loading: false, page: 1 });
+  const [shiftsState, setShiftsState] = useState({ items: [], total: 0, loading: false, page: 1 });
+  
+  const [loading, setLoading] = useState(true);
+  const [totalRecords, setTotalRecords] = useState(0);
+  const [lazyParams, setLazyParams] = useState({
+    first: 0,
+    rows: 10,
+    page: 0,
+  });
+  
+  // Modal states
+  const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [form, setForm] = useState(EMPTY_FORM);
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const [profilesData] = await Promise.all([
+        fetchDriverProfiles({ page: lazyParams.page + 1, per_page: lazyParams.rows })
+      ]);
+      
+      setProfiles(profilesData?.data || []);
+      setTotalRecords(profilesData?.total || 0);
+      
+    } catch (err) {
+      console.error('Error al cargar datos:', err);
+      toast.current?.show({ severity: 'error', summary: 'Error', detail: 'No se pudieron cargar los datos.' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, [lazyParams]);
+
+  const loadDriversPage = async (pageToLoad = 1) => {
+    if (driversState.loading) return;
+    setDriversState(prev => ({ ...prev, loading: true }));
+    try {
+      const res = await fetchUsers({ role_name: 'conductor', page: pageToLoad, per_page: 10 });
+      const newItems = res.data || [];
+      const total = res.total || newItems.length;
+      
+      setDriversState(prev => ({
+        items: pageToLoad === 1 ? newItems : [...prev.items, ...newItems],
+        total,
+        page: pageToLoad,
+        loading: false
+      }));
+    } catch (e) {
+      setDriversState(prev => ({ ...prev, loading: false }));
+    }
+  };
+
+  const loadVehiclesPage = async (pageToLoad = 1) => {
+    if (vehiclesState.loading) return;
+    setVehiclesState(prev => ({ ...prev, loading: true }));
+    try {
+      const res = await fetchVehicles({ page: pageToLoad, per_page: 10 });
+      const newItems = res.data || [];
+      const total = res.total || newItems.length;
+      
+      setVehiclesState(prev => ({
+        items: pageToLoad === 1 ? newItems : [...prev.items, ...newItems],
+        total,
+        page: pageToLoad,
+        loading: false
+      }));
+    } catch (e) {
+      setVehiclesState(prev => ({ ...prev, loading: false }));
+    }
+  };
+
+  const loadShiftsPage = async (pageToLoad = 1) => {
+    if (shiftsState.loading) return;
+    setShiftsState(prev => ({ ...prev, loading: true }));
+    try {
+      const res = await fetchShifts({ page: pageToLoad, per_page: 10 });
+      const newItems = res.data || [];
+      const total = res.total || newItems.length;
+      
+      setShiftsState(prev => ({
+        items: pageToLoad === 1 ? newItems : [...prev.items, ...newItems],
+        total,
+        page: pageToLoad,
+        loading: false
+      }));
+    } catch (e) {
+      setShiftsState(prev => ({ ...prev, loading: false }));
+    }
+  };
+
+  const onDriversShow = () => { if (driversState.items.length === 0) loadDriversPage(1); };
+  const onVehiclesShow = () => { if (vehiclesState.items.length === 0) loadVehiclesPage(1); };
+  const onShiftsShow = () => { if (shiftsState.items.length === 0) loadShiftsPage(1); };
+
+  const ObserverItem = ({ onVisible }) => {
+    const ref = useRef(null);
+    useEffect(() => {
+      const observer = new IntersectionObserver(([entry]) => {
+        if (entry.isIntersecting) {
+          onVisible();
+        }
+      });
+      if (ref.current) observer.observe(ref.current);
+      return () => observer.disconnect();
+    }, [onVisible]);
+    return (
+      <div ref={ref} style={{ padding: '0.5rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+        <i className="pi pi-spin pi-spinner" style={{ marginRight: '0.5rem' }} />
+        Cargando más...
+      </div>
+    );
+  };
+
+  const driverValueTemplate = (option, props) => {
+    if (option && !option.isLoader) return <div>{option.name}</div>;
+    if (form.selectedDriver) return <div>{form.selectedDriver.name}</div>;
+    return <span>{props.placeholder}</span>;
+  };
+  const driverItemTemplate = (option) => {
+    if (!option) return null;
+    if (option.isLoader) return <ObserverItem onVisible={() => loadDriversPage(driversState.page + 1)} />;
+    return <div>{option.name}</div>;
+  };
+
+  const vehicleValueTemplate = (option, props) => {
+    if (option && !option.isLoader) return <div>{option.brand} {option.model} - {option.plate}</div>;
+    if (form.selectedVehicle) return <div>{form.selectedVehicle.brand} {form.selectedVehicle.model} - {form.selectedVehicle.plate}</div>;
+    return <span>{props.placeholder}</span>;
+  };
+  const vehicleItemTemplate = (option) => {
+    if (!option) return null;
+    if (option.isLoader) return <ObserverItem onVisible={() => loadVehiclesPage(vehiclesState.page + 1)} />;
+    return <div>{option.brand} {option.model} - {option.plate}</div>;
+  };
+
+  const shiftValueTemplate = (option, props) => {
+    if (option && !option.isLoader) return <div>{option.name} ({option.start_time?.slice(0,5)} - {option.end_time?.slice(0,5)})</div>;
+    if (form.selectedShift) return <div>{form.selectedShift.name} ({form.selectedShift.start_time?.slice(0,5)} - {form.selectedShift.end_time?.slice(0,5)})</div>;
+    return <span>{props.placeholder}</span>;
+  };
+  const shiftItemTemplate = (option) => {
+    if (!option) return null;
+    if (option.isLoader) return <ObserverItem onVisible={() => loadShiftsPage(shiftsState.page + 1)} />;
+    return <div>{option.name} ({option.start_time?.slice(0,5)} - {option.end_time?.slice(0,5)})</div>;
+  };
+
+  const driversOptions = driversState.items.length < driversState.total 
+    ? [...driversState.items, { id: 'loader', isLoader: true }] 
+    : driversState.items;
+
+  const vehiclesOptions = vehiclesState.items.length < vehiclesState.total 
+    ? [...vehiclesState.items, { id: 'loader', isLoader: true }] 
+    : vehiclesState.items;
+
+  const shiftsOptions = shiftsState.items.length < shiftsState.total 
+    ? [...shiftsState.items, { id: 'loader', isLoader: true }] 
+    : shiftsState.items;
+
+  const openCreate = async () => {
+    setForm(EMPTY_FORM);
+    setCreating(true);
+  };
+
+  const openEdit = async (profile) => {
+    setForm({
+      id: profile.id,
+      user_id: profile.user_id,
+      vehicle_id: profile.vehicle_id,
+      shift_id: profile.shift_id,
+      is_active: profile.is_active,
+      selectedDriver: profile.user,
+      selectedVehicle: profile.vehicle,
+      selectedShift: profile.shift
+    });
+    setEditing(true);
+  };
+
+  const closeForm = () => {
+    setCreating(false);
+    setEditing(false);
+    setForm(EMPTY_FORM);
+  };
+
+  const handleSave = async () => {
+    if (!form.user_id || !form.vehicle_id || !form.shift_id) {
+      toast.current?.show({ severity: 'warn', summary: 'Datos incompletos', detail: 'Por favor selecciona Conductor, Vehículo y Horario.' });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      if (editing) {
+        await updateDriverProfile(form.id, {
+          shift_id: form.shift_id,
+          vehicle_id: form.vehicle_id,
+          is_active: form.is_active
+        });
+        toast.current?.show({ severity: 'success', summary: 'Actualizado', detail: 'Asignación actualizada correctamente.' });
+      } else {
+        await createDriverProfile(form);
+        toast.current?.show({ severity: 'success', summary: 'Creado', detail: 'Asignación creada correctamente.' });
+      }
+      closeForm();
+      loadData();
+    } catch (err) {
+      console.error('Error guardando asignación:', err);
+      toast.current?.show({ severity: 'error', summary: 'Error', detail: 'No se pudo guardar la asignación (Revisa que el conductor no tenga ya una).' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const confirmDelete = (profile) => {
+    setDeleteConfirm(profile);
+  };
+
+  const handleDelete = async () => {
+    if (!deleteConfirm) return;
+    setLoading(true);
+    try {
+      await deleteDriverProfile(deleteConfirm.id);
+      toast.current?.show({ severity: 'success', summary: 'Eliminada', detail: 'Asignación eliminada correctamente.' });
+      setDeleteConfirm(null);
+      loadData();
+    } catch (err) {
+      console.error('Error eliminando asignación:', err);
+      toast.current?.show({ severity: 'error', summary: 'Error', detail: 'No se pudo eliminar la asignación.' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const driverBody = (rowData) => {
+    return rowData.user ? rowData.user.name : 'Desconocido';
+  };
+
+  const vehicleBody = (rowData) => {
+    return rowData.vehicle ? `${rowData.vehicle.brand} ${rowData.vehicle.model} (${rowData.vehicle.plate})` : 'Sin Vehículo';
+  };
+
+  const shiftBody = (rowData) => {
+    return rowData.shift ? `${rowData.shift.name} (${rowData.shift.start_time.slice(0,5)} - ${rowData.shift.end_time.slice(0,5)})` : 'Sin Horario';
+  };
+
+  const actionBody = (rowData) => (
+    <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+      <Button
+        icon="pi pi-pencil"
+        className="p-button-rounded p-button-text p-button-info"
+        onClick={() => openEdit(rowData)}
+        tooltip="Editar asignación"
+      />
+      <Button
+        icon="pi pi-trash"
+        className="p-button-rounded p-button-text p-button-danger"
+        onClick={() => confirmDelete(rowData)}
+        tooltip="Eliminar asignación"
+      />
+    </div>
+  );
+
+  return (
+    <div className="management-page">
+      <Toast ref={toast} />
+      
+      <div className="management-header" style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <h2>Asignaciones Activas</h2>
+          <p style={{ color: 'var(--text-secondary)' }}>Asigna un vehículo y un horario a cada conductor</p>
+        </div>
+        <Button label="Nueva Asignación" icon="pi pi-plus" onClick={openCreate} style={{ backgroundColor: 'var(--primary-main)', border: 'none' }} />
+      </div>
+
+      <Card>
+        <DataTable
+          value={profiles}
+          loading={loading}
+          emptyMessage="No hay asignaciones registradas."
+          responsiveLayout="scroll"
+          className="custom-datatable"
+          lazy
+          paginator
+          first={lazyParams.first}
+          rows={lazyParams.rows}
+          totalRecords={totalRecords}
+          onPage={(e) => setLazyParams(e)}
+        >
+          <Column field="id" header="ID" style={{ width: '80px' }} />
+          <Column header="Conductor" body={driverBody} />
+          <Column header="Vehículo Asignado" body={vehicleBody} />
+          <Column header="Horario (Turno)" body={shiftBody} />
+          <Column header="Estado" body={(r) => r.is_active ? <span style={{ color: 'green' }}>Activo</span> : <span style={{ color: 'red' }}>Inactivo</span>} />
+          <Column body={actionBody} style={{ width: '120px', textAlign: 'right' }} />
+        </DataTable>
+      </Card>
+
+      {/* Modal Crear/Editar */}
+      <Dialog
+        visible={creating || editing}
+        style={{ width: '500px' }}
+        header={editing ? 'Editar Asignación' : 'Nueva Asignación'}
+        modal
+        onHide={closeForm}
+        footer={
+          <div>
+            <Button label="Cancelar" icon="pi pi-times" onClick={closeForm} className="p-button-text" />
+            <Button label="Guardar" icon="pi pi-save" onClick={handleSave} autoFocus />
+          </div>
+        }
+      >
+        <div className="p-fluid">
+          <div className="p-field" style={{ marginBottom: '1.5rem' }}>
+            <label htmlFor="user_id" style={{ display: 'block', marginBottom: '0.5rem' }}>Conductor</label>
+            <Dropdown 
+              id="user_id" 
+              value={form.user_id} 
+              options={driversOptions} 
+              onChange={(e) => setForm({ ...form, user_id: e.value })} 
+              optionLabel="name" 
+              optionValue="id"
+              placeholder="Selecciona un conductor"
+              disabled={editing}
+              onShow={onDriversShow}
+              itemTemplate={driverItemTemplate}
+              valueTemplate={driverValueTemplate}
+            />
+          </div>
+          
+          <div className="p-field" style={{ marginBottom: '1.5rem' }}>
+            <label htmlFor="vehicle_id" style={{ display: 'block', marginBottom: '0.5rem' }}>Vehículo (Carrito)</label>
+            <Dropdown 
+              id="vehicle_id" 
+              value={form.vehicle_id} 
+              options={vehiclesOptions} 
+              onChange={(e) => setForm({ ...form, vehicle_id: e.value })} 
+              optionLabel="brand"
+              optionValue="id"
+              placeholder="Selecciona el vehículo a asignar" 
+              onShow={onVehiclesShow}
+              itemTemplate={vehicleItemTemplate}
+              valueTemplate={vehicleValueTemplate}
+            />
+          </div>
+
+          <div className="p-field" style={{ marginBottom: '1.5rem' }}>
+            <label htmlFor="shift_id" style={{ display: 'block', marginBottom: '0.5rem' }}>Horario (Turno)</label>
+            <Dropdown 
+              id="shift_id" 
+              value={form.shift_id} 
+              options={shiftsOptions} 
+              onChange={(e) => setForm({ ...form, shift_id: e.value })} 
+              optionLabel="name"
+              optionValue="id"
+              placeholder="Selecciona el turno de trabajo" 
+              onShow={onShiftsShow}
+              itemTemplate={shiftItemTemplate}
+              valueTemplate={shiftValueTemplate}
+            />
+          </div>
+          {editing && (
+            <div className="p-field" style={{ display: 'flex', alignItems: 'center', marginTop: '1.5rem' }}>
+              <InputSwitch 
+                id="is_active" 
+                checked={form.is_active} 
+                onChange={(e) => setForm({ ...form, is_active: e.value })} 
+              />
+              <label htmlFor="is_active" style={{ marginLeft: '0.5rem', fontWeight: 'bold' }}>
+                Activo
+              </label>
+            </div>
+          )}
+        </div>
+      </Dialog>
+
+      {/* Modal Confirmar Eliminación */}
+      <Dialog
+        visible={!!deleteConfirm}
+        style={{ width: '450px' }}
+        header="Confirmar Eliminación"
+        modal
+        onHide={() => setDeleteConfirm(null)}
+        footer={
+          <div>
+            <Button label="No" icon="pi pi-times" onClick={() => setDeleteConfirm(null)} className="p-button-text" />
+            <Button label="Sí, Eliminar" icon="pi pi-check" onClick={handleDelete} className="p-button-danger" autoFocus />
+          </div>
+        }
+      >
+        <div className="confirmation-content" style={{ display: 'flex', alignItems: 'center' }}>
+          <i className="pi pi-exclamation-triangle" style={{ fontSize: '2rem', color: 'var(--danger-main)', marginRight: '1rem' }} />
+          {deleteConfirm && <span>¿Estás seguro de que deseas eliminar la asignación de <b>{deleteConfirm.user?.name}</b>?</span>}
+        </div>
+      </Dialog>
+    </div>
+  );
+}

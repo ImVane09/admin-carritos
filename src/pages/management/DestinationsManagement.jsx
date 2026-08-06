@@ -9,8 +9,9 @@ import { InputTextarea } from 'primereact/inputtextarea';
 import { Dropdown } from 'primereact/dropdown';
 import { Toast } from 'primereact/toast';
 import { ProgressSpinner } from 'primereact/progressspinner';
+import { InputSwitch } from 'primereact/inputswitch';
 import DestinationMapPicker from '../../components/DestinationMapPicker';
-import { fetchDestinations, createDestination, updateDestination, deleteDestination, restoreDestination } from '../../services/adminService';
+import { fetchDestinations, createDestination, updateDestination, deleteDestination } from '../../services/adminService';
 
 const DEFAULT_CENTER = [-0.9525, -80.7450];
 
@@ -49,6 +50,7 @@ const EMPTY_FORM = {
   longitude: '',
   address: '',
   is_default: false,
+  is_active: true
 };
 
 function normalizeDestination(destination) {
@@ -135,6 +137,7 @@ export default function DestinationsManagement() {
       longitude: Number.isFinite(destination.longitude) ? String(destination.longitude) : '',
       address: destination.address || '',
       is_default: Boolean(destination.is_default),
+      is_active: destination.is_active !== undefined ? destination.is_active : true,
     });
     setEditing(true);
     setCreating(false);
@@ -182,7 +185,9 @@ export default function DestinationsManagement() {
         description: form.description.trim(),
         latitude,
         longitude,
-        address: form.address.trim()
+        address: form.address.trim(),
+        is_default: form.is_default,
+        is_active: form.is_active
       };
 
       if (editing) {
@@ -221,30 +226,16 @@ export default function DestinationsManagement() {
     setLoading(true);
     try {
       await deleteDestination(deleteConfirm.id);
-      setDestinations(destinations.map((d) => d.id === deleteConfirm.id ? { ...d, deleted_at: new Date().toISOString() } : d));
+      setDestinations(destinations.filter((d) => d.id !== deleteConfirm.id));
       setDeleteConfirm(null);
-      toast.current?.show({ severity: 'success', summary: 'Suspendido', detail: 'Destino suspendido correctamente' });
+      toast.current?.show({ severity: 'success', summary: 'Eliminado', detail: 'Destino eliminado correctamente' });
     } catch (err) {
       console.error(err);
       toast.current?.show({ 
         severity: 'error', 
         summary: 'Error', 
-        detail: err.response?.data?.error || 'No se pudo suspender el destino.' 
+        detail: err.response?.data?.error || 'No se pudo eliminar el destino.' 
       });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleRestore = async (row) => {
-    setLoading(true);
-    try {
-      await restoreDestination(row.id);
-      setDestinations(destinations.map((d) => d.id === row.id ? { ...d, deleted_at: null } : d));
-      toast.current?.show({ severity: 'success', summary: 'Restaurado', detail: 'Destino restaurado correctamente' });
-    } catch (err) {
-      console.error(err);
-      toast.current?.show({ severity: 'error', summary: 'Error', detail: err.response?.data?.error || 'No se pudo restaurar el destino' });
     } finally {
       setLoading(false);
     }
@@ -336,14 +327,8 @@ export default function DestinationsManagement() {
               body={(row) => (
                 <div className="action-buttons">
                   <Button size="small" icon="pi pi-eye" text onClick={() => setSelected(row)} title="Ver" />
-                  {!row.deleted_at ? (
-                    <>
-                      <Button size="small" icon="pi pi-pencil" text className="p-button-warning" onClick={() => openEdit(row)} title="Editar" />
-                      <Button size="small" icon="pi pi-ban" text className="p-button-danger" onClick={() => handleDelete(row)} title="Suspender" />
-                    </>
-                  ) : (
-                    <Button size="small" icon="pi pi-refresh" text className="p-button-success" onClick={() => handleRestore(row)} title="Restaurar" />
-                  )}
+                  <Button size="small" icon="pi pi-pencil" text className="p-button-warning" onClick={() => openEdit(row)} title="Editar" />
+                  <Button size="small" icon="pi pi-trash" text className="p-button-danger" onClick={() => handleDelete(row)} title="Eliminar" />
                 </div>
               )}
             />
@@ -458,6 +443,19 @@ export default function DestinationsManagement() {
                   <span style={{ fontWeight: 600 }}>Marcar como destino predeterminado</span>
                 </label>
               </div>
+
+              {editing && (
+                <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', marginTop: '0.5rem' }}>
+                  <InputSwitch 
+                    id="is_active" 
+                    checked={form.is_active} 
+                    onChange={(e) => setForm({ ...form, is_active: e.value })} 
+                  />
+                  <label htmlFor="is_active" style={{ marginLeft: '0.5rem', fontWeight: 'bold' }}>
+                    Activo
+                  </label>
+                </div>
+              )}
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '0.5rem' }}>
@@ -468,15 +466,15 @@ export default function DestinationsManagement() {
         </Dialog>
 
         <Dialog
-          header="Confirmar suspensión"
+          header="Confirmar Eliminación"
           visible={!!deleteConfirm}
           style={{ width: '32rem' }}
           onHide={() => setDeleteConfirm(null)}
         >
-          <p>¿Está seguro que desea suspender este destino? Podrá restaurarlo más adelante.</p>
+          <p>¿Está seguro que desea eliminar este destino? Esta acción no se puede deshacer.</p>
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
             <Button label="Cancelar" onClick={() => setDeleteConfirm(null)} className="p-button-text" />
-            <Button label="Suspender" onClick={confirmDelete} className="p-button-danger" />
+            <Button label="Eliminar" onClick={confirmDelete} className="p-button-danger" />
           </div>
         </Dialog>
       </div>

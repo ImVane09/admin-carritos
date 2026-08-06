@@ -223,13 +223,6 @@ export default function DriversManagement() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="management-loading">
-        <ProgressSpinner style={{ width: '50px', height: '50px' }} />
-      </div>
-    );
-  }
 
   return (
     <>

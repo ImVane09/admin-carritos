@@ -7,7 +7,8 @@ import { Dialog } from 'primereact/dialog';
 import { InputText } from 'primereact/inputtext';
 import { Dropdown } from 'primereact/dropdown';
 import { Toast } from 'primereact/toast';
-import { fetchVehicles, createVehicle, updateVehicle, toggleVehicleStatus, deleteVehicle } from '../../services/adminService';
+import { InputSwitch } from 'primereact/inputswitch';
+import { fetchVehicles, createVehicle, updateVehicle, deleteVehicle } from '../../services/adminService';
 
 const EMPTY_FORM = {
   id: null,
@@ -15,7 +16,8 @@ const EMPTY_FORM = {
   model: '',
   plate: '',
   color: '',
-  capacity: '',
+  capacity: 4,
+  status: 'active'
 };
 
 export default function VehiclesManagement() {
@@ -46,7 +48,7 @@ export default function VehiclesManagement() {
     const load = async () => {
       setLoading(true);
       try {
-        const result = await fetchVehicles({ page, per_page: 10, search: debouncedQuery, is_active: statusFilter });
+        const result = await fetchVehicles({ page, per_page: 10, search: debouncedQuery, status: statusFilter });
         const dataArray = result?.data || [];
         setVehicles(dataArray);
         setTotalRecords(result?.total || 0);
@@ -73,9 +75,10 @@ export default function VehiclesManagement() {
       id: vehicle.id,
       brand: vehicle.brand || '',
       model: vehicle.model || '',
-      plate: vehicle.plate || '',
-      color: vehicle.color || '',
-      capacity: vehicle.capacity ? String(vehicle.capacity) : '',
+      plate: vehicle.plate,
+      color: vehicle.color,
+      capacity: vehicle.capacity,
+      status: vehicle.status || 'active'
     });
     setEditing(true);
     setCreating(false);
@@ -104,7 +107,8 @@ export default function VehiclesManagement() {
         model: form.model.trim(),
         plate: form.plate.trim().toUpperCase(),
         color: form.color.trim(),
-        capacity: parseInt(form.capacity, 10)
+        capacity: parseInt(form.capacity, 10),
+        status: form.status
       };
 
       if (editing) {
@@ -126,22 +130,6 @@ export default function VehiclesManagement() {
         summary: 'Error', 
         detail: err.response?.data?.message || err.response?.data?.error || 'Error al guardar vehículo.' 
       });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleToggleStatus = async (vehicle) => {
-    setLoading(true);
-    try {
-      const response = await toggleVehicleStatus(vehicle.id);
-      const is_active = response.is_active !== undefined ? response.is_active : !vehicle.is_active;
-      
-      setVehicles(vehicles.map((v) => v.id === vehicle.id ? { ...v, is_active } : v));
-      toast.current?.show({ severity: 'success', summary: 'Estado actualizado', detail: 'Se cambió el estado del vehículo' });
-    } catch (err) {
-      console.error(err);
-      toast.current?.show({ severity: 'error', summary: 'Error', detail: 'No se pudo cambiar el estado.' });
     } finally {
       setLoading(false);
     }
@@ -192,8 +180,9 @@ export default function VehiclesManagement() {
                 value={statusFilter} 
                 options={[
                   { label: 'Todos', value: null },
-                  { label: 'Activos', value: true },
-                  { label: 'En mantenimiento', value: false }
+                  { label: 'Activos', value: 'active' },
+                  { label: 'Inactivos', value: 'inactive' },
+                  { label: 'En mantenimiento', value: 'maintenance' }
                 ]} 
                 optionLabel="label"
                 optionValue="value"
@@ -231,27 +220,41 @@ export default function VehiclesManagement() {
             <Column field="capacity" header="Capacidad" sortable body={(row) => `${row.capacity} pax`} />
             <Column
               header="Estado"
-              body={(row) => (
-                <span className={`status-badge status-${row.is_active ? 'activo' : 'inactivo'}`}>
-                  {row.is_active ? 'Activo' : 'Inactivo'}
-                </span>
-              )}
+              body={(row) => {
+                const statusLabels = {
+                  'active': { label: 'Activo', class: 'status-activo' },
+                  'inactive': { label: 'Inactivo', class: 'status-inactivo' },
+                  'maintenance': { label: 'Mantenimiento', class: 'status-warning' }
+                };
+                const status = statusLabels[row.status] || statusLabels['active'];
+                return (
+                  <span className={`status-badge ${status.class}`}>
+                    {status.label}
+                  </span>
+                );
+              }}
             />
             <Column
               header="Acciones"
               body={(row) => (
                 <div className="action-buttons">
-                  <Button size="small" icon="pi pi-eye" text onClick={() => setSelected(row)} title="Ver Detalles" />
-                  <Button size="small" icon="pi pi-pencil" text className="p-button-warning" onClick={() => openEdit(row)} title="Editar" />
+                  <Button size="small" icon="pi pi-info-circle" text onClick={() => setSelected(row)} title="Ver Detalles" />
                   <Button 
                     size="small" 
-                    icon={row.is_active ? "pi pi-eye-slash" : "pi pi-check-circle"} 
+                    icon="pi pi-user-edit" 
                     text 
-                    className={row.is_active ? "p-button-secondary" : "p-button-success"} 
-                    onClick={() => handleToggleStatus(row)} 
-                    title={row.is_active ? "Desactivar" : "Activar"} 
+                    className="p-button-warning" 
+                    onClick={() => openEdit(row)} 
+                    title="Editar" 
                   />
-                  <Button size="small" icon="pi pi-trash" text className="p-button-danger" onClick={() => setDeleteConfirm(row)} title="Eliminar" />
+                  <Button 
+                    size="small" 
+                    icon="pi pi-trash" 
+                    text 
+                    className="p-button-danger" 
+                    onClick={() => setDeleteConfirm(row)} 
+                    title="Eliminar" 
+                  />
                 </div>
               )}
             />
@@ -271,7 +274,11 @@ export default function VehiclesManagement() {
               <p><strong>Modelo:</strong> {selected.model}</p>
               <p><strong>Color:</strong> {selected.color}</p>
               <p><strong>Capacidad:</strong> {selected.capacity} pasajeros</p>
-              <p><strong>Estado:</strong> {selected.is_active ? 'Activo' : 'Inactivo'}</p>
+              <p><strong>Estado:</strong> {
+                form.status === 'active' ? 'Activo' :
+                form.status === 'inactive' ? 'Inactivo' :
+                'En Mantenimiento'
+              }</p>
             </div>
           )}
         </Dialog>
@@ -327,7 +334,7 @@ export default function VehiclesManagement() {
               />
             </div>
 
-            <div>
+            <div style={{ gridColumn: '1 / -1' }}>
               <label htmlFor="vehicle-capacity" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>Capacidad (Pasajeros)</label>
               <InputText
                 id="vehicle-capacity"
@@ -340,6 +347,23 @@ export default function VehiclesManagement() {
                 placeholder="Ej: 4"
               />
             </div>
+            {editing && (
+              <div style={{ gridColumn: '1 / -1', marginTop: '0.5rem' }}>
+                <label htmlFor="status" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>Estado del Vehículo</label>
+                <Dropdown 
+                  id="status" 
+                  value={form.status} 
+                  options={[
+                    { label: 'Activo', value: 'active' },
+                    { label: 'Inactivo', value: 'inactive' },
+                    { label: 'En Mantenimiento', value: 'maintenance' }
+                  ]}
+                  onChange={(e) => setForm({ ...form, status: e.value })} 
+                  className="w-full"
+                  placeholder="Selecciona un estado"
+                />
+              </div>
+            )}
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '2rem' }}>

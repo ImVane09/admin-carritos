@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { Avatar } from 'primereact/avatar';
 import { Button } from 'primereact/button';
+import { Toast } from 'primereact/toast';
+import { approveDriverDisconnect } from '../services/adminService';
 import { useAuth } from '../context/AuthContext';
 
 const menu = [
@@ -18,6 +20,9 @@ const menu = [
   { to: '/management/passengers', label: 'Pasajeros', icon: 'pi pi-users', nested: true, permission: 'manage_users' },
   { to: '/management/destinations', label: 'Destinos', icon: 'pi pi-map-marker', nested: true, permission: 'manage_destinations' },
   { to: '/management/vehicles', label: 'Carritos', icon: 'pi pi-car', nested: true, permission: 'manage_vehicles' },
+  { to: '/management/shifts', label: 'Horarios', icon: 'pi pi-clock', nested: true, permission: 'manage_users' },
+  { to: '/management/assignments', label: 'Asignaciones', icon: 'pi pi-calendar-plus', nested: true, permission: 'manage_users' },
+  { to: '/management/complaints', label: 'Quejas', icon: 'pi pi-exclamation-circle', nested: true, permission: 'view_passenger_reports' },
   { to: '/management/trips', label: 'Historial de Viajes', icon: 'pi pi-history', nested: true, permission: 'view_history' },
 ];
 
@@ -25,6 +30,48 @@ export default function AdminLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [isManagementOpen, setIsManagementOpen] = useState(true);
+  const toast = useRef(null);
+
+  useEffect(() => {
+    if (!user || !window.Echo) return;
+
+    // Listen for disconnect requests
+    const channel = window.Echo.private('admin.notifications');
+    channel.listen('.driver.disconnect.requested', (data) => {
+      // data: { driverId, driverName, reason }
+      toast.current?.show({
+        severity: 'warn',
+        summary: `Desconexión Solicitada`,
+        detail: (
+          <div>
+            <p><strong>{data.driverName}</strong> ha solicitado desconectarse.</p>
+            <p>Motivo: {data.reason}</p>
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+              <Button size="small" label="Aprobar" severity="success" onClick={() => handleApproveDisconnect(data.driverId)} />
+            </div>
+          </div>
+        ),
+        life: 15000, // Stay on screen for 15 seconds
+      });
+    });
+
+    return () => {
+      window.Echo.leave('admin.notifications');
+    };
+  }, [user]);
+
+  const handleApproveDisconnect = async (driverId) => {
+    try {
+      await approveDriverDisconnect(driverId);
+      toast.current?.show({ severity: 'success', summary: 'Aprobado', detail: 'Conductor desconectado exitosamente.', life: 3000 });
+      // clear any warn toast? By default primeReact toasts stack or we can clear
+      toast.current?.clear();
+      toast.current?.show({ severity: 'success', summary: 'Aprobado', detail: 'Conductor desconectado exitosamente.', life: 3000 });
+    } catch (err) {
+      console.error(err);
+      toast.current?.show({ severity: 'error', summary: 'Error', detail: 'No se pudo aprobar la desconexión.', life: 3000 });
+    }
+  };
 
   const onLogout = () => {
     logout();
@@ -42,6 +89,7 @@ export default function AdminLayout() {
 
   return (
     <div className="admin-shell">
+      <Toast ref={toast} position="top-right" />
       <aside className="sidebar">
         <Link to="/" className="brand">
           <div className="brand-icon-wrapper" style={{

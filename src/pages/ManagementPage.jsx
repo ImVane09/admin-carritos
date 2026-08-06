@@ -97,6 +97,22 @@ export default function ManagementPage() {
       color: '#9c27b0',
       path: '/management/trips',
       count: counts.trips === '...' ? '...' : (typeof counts.trips === 'number' ? `${counts.trips} viajes` : counts.trips)
+    },
+    {
+      title: 'Horarios (Shifts)',
+      description: 'Gestionar turnos disponibles en el campus',
+      icon: 'pi pi-clock',
+      color: '#00bcd4',
+      path: '/management/shifts',
+      count: 'Ver'
+    },
+    {
+      title: 'Asignaciones',
+      description: 'Asignar vehículos y horarios a conductores',
+      icon: 'pi pi-calendar-plus',
+      color: '#e91e63',
+      path: '/management/assignments',
+      count: 'Ver'
     }
   ];
 
