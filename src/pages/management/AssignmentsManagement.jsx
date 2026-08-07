@@ -9,6 +9,7 @@ import { Toast } from 'primereact/toast';
 import { fetchDriverProfiles, createDriverProfile, updateDriverProfile, deleteDriverProfile, fetchUsers, fetchVehicles, fetchShifts } from '../../services/adminService';
 import { InputSwitch } from 'primereact/inputswitch';
 import { Skeleton } from 'primereact/skeleton';
+import StatCardPremium from '../../components/StatCardPremium';
 
 const EMPTY_FORM = { id: null, user_id: null, vehicle_id: null, shift_id: null, is_active: true };
 
@@ -22,6 +23,7 @@ export default function AssignmentsManagement() {
   
   const [loading, setLoading] = useState(true);
   const [totalRecords, setTotalRecords] = useState(0);
+  const [globalStats, setGlobalStats] = useState({ inactive: 0, deleted: 0 });
   const [lazyParams, setLazyParams] = useState({
     first: 0,
     rows: 10,
@@ -31,8 +33,10 @@ export default function AssignmentsManagement() {
   // Modal states
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [viewing, setViewing] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [selected, setSelected] = useState(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -43,6 +47,13 @@ export default function AssignmentsManagement() {
       
       setProfiles(profilesData?.data || []);
       setTotalRecords(profilesData?.total || 0);
+      if (profilesData?.total_inactivos !== undefined) {
+        setGlobalStats({
+          inactive: profilesData.total_inactivos || 0,
+          deleted: profilesData.total_eliminados || 0,
+          total: profilesData.total_registrados || 0,
+        });
+      }
       
     } catch (err) {
       console.error('Error al cargar datos:', err);
@@ -60,7 +71,7 @@ export default function AssignmentsManagement() {
     if (driversState.loading) return;
     setDriversState(prev => ({ ...prev, loading: true }));
     try {
-      const res = await fetchUsers({ role_name: 'conductor', page: pageToLoad, per_page: 10 });
+      const res = await fetchUsers({ role_name: 'conductor', page: pageToLoad, per_page: 10, status: 'active' });
       const newItems = res.data || [];
       const total = res.total || newItems.length;
       
@@ -79,7 +90,7 @@ export default function AssignmentsManagement() {
     if (vehiclesState.loading) return;
     setVehiclesState(prev => ({ ...prev, loading: true }));
     try {
-      const res = await fetchVehicles({ page: pageToLoad, per_page: 10 });
+      const res = await fetchVehicles({ page: pageToLoad, per_page: 10, status: 'active' });
       const newItems = res.data || [];
       const total = res.total || newItems.length;
       
@@ -98,7 +109,7 @@ export default function AssignmentsManagement() {
     if (shiftsState.loading) return;
     setShiftsState(prev => ({ ...prev, loading: true }));
     try {
-      const res = await fetchShifts({ page: pageToLoad, per_page: 10 });
+      const res = await fetchShifts({ page: pageToLoad, per_page: 10, status: 'active' });
       const newItems = res.data || [];
       const total = res.total || newItems.length;
       
@@ -200,10 +211,17 @@ export default function AssignmentsManagement() {
     setEditing(true);
   };
 
+  const openView = (profile) => {
+    setSelected(profile);
+    setViewing(true);
+  };
+
   const closeForm = () => {
     setCreating(false);
     setEditing(false);
+    setViewing(false);
     setForm(EMPTY_FORM);
+    setSelected(null);
   };
 
   const handleSave = async () => {
@@ -267,33 +285,55 @@ export default function AssignmentsManagement() {
     return rowData.shift ? `${rowData.shift.name} (${rowData.shift.start_time.slice(0,5)} - ${rowData.shift.end_time.slice(0,5)})` : 'Sin Horario';
   };
 
+  const statusBody = (rowData) => {
+    if (rowData.deleted_at) {
+      return <span style={{ color: 'red', fontWeight: 'bold' }}>Eliminado</span>;
+    }
+    return rowData.is_active ? <span style={{ color: 'green' }}>Activo</span> : <span style={{ color: 'red' }}>Inactivo</span>;
+  };
+
   const actionBody = (rowData) => (
     <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
       <Button
-        icon="pi pi-pencil"
-        className="p-button-rounded p-button-text p-button-info"
-        onClick={() => openEdit(rowData)}
-        tooltip="Editar asignación"
+        icon="pi pi-eye"
+        className="p-button-rounded p-button-text p-button-secondary"
+        onClick={() => openView(rowData)}
+        tooltip="Ver Detalles"
       />
-      <Button
-        icon="pi pi-trash"
-        className="p-button-rounded p-button-text p-button-danger"
-        onClick={() => confirmDelete(rowData)}
-        tooltip="Eliminar asignación"
-      />
+      {!rowData.deleted_at && (
+        <>
+          <Button
+            icon="pi pi-pencil"
+            className="p-button-rounded p-button-text p-button-info"
+            onClick={() => openEdit(rowData)}
+            tooltip="Editar asignación"
+          />
+          <Button
+            icon="pi pi-trash"
+            className="p-button-rounded p-button-text p-button-danger"
+            onClick={() => confirmDelete(rowData)}
+            tooltip="Eliminar asignación"
+          />
+        </>
+      )}
     </div>
   );
 
   return (
     <div className="management-page">
       <Toast ref={toast} />
-      
       <div className="management-header" style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h2>Asignaciones Activas</h2>
           <p style={{ color: 'var(--text-secondary)' }}>Asigna un vehículo y un horario a cada conductor</p>
         </div>
         <Button label="Nueva Asignación" icon="pi pi-plus" onClick={openCreate} style={{ backgroundColor: 'var(--primary-main)', border: 'none' }} />
+      </div>
+
+      <div className="dashboard-grid-premium" style={{ marginBottom: '1.25rem', marginTop: '1.25rem' }}>
+        <StatCardPremium title="Total Asignaciones" value={globalStats.total} icon="pi pi-link" tone="blue" subtitle="Registradas en sistema" loading={loading} />
+        <StatCardPremium title="Inactivas" value={globalStats.inactive} icon="pi pi-pause" tone="amber" subtitle="En el sistema" loading={loading} />
+        <StatCardPremium title="Eliminadas" value={globalStats.deleted} icon="pi pi-trash" tone="red" subtitle="En el sistema" loading={loading} />
       </div>
 
       <Card>
@@ -314,7 +354,7 @@ export default function AssignmentsManagement() {
           <Column header="Conductor" body={driverBody} />
           <Column header="Vehículo Asignado" body={vehicleBody} />
           <Column header="Horario (Turno)" body={shiftBody} />
-          <Column header="Estado" body={(r) => r.is_active ? <span style={{ color: 'green' }}>Activo</span> : <span style={{ color: 'red' }}>Inactivo</span>} />
+          <Column header="Estado" body={statusBody} />
           <Column body={actionBody} style={{ width: '120px', textAlign: 'right' }} />
         </DataTable>
       </Card>
@@ -395,6 +435,27 @@ export default function AssignmentsManagement() {
             </div>
           )}
         </div>
+      </Dialog>
+
+      {/* Modal Ver Detalles */}
+      <Dialog
+        visible={viewing}
+        style={{ width: '450px' }}
+        header="Detalles de Asignación"
+        modal
+        onHide={closeForm}
+        footer={
+          <Button label="Cerrar" icon="pi pi-times" onClick={closeForm} className="p-button-text" />
+        }
+      >
+        {selected && (
+          <div className="p-fluid">
+            <p><strong>Conductor:</strong> {selected.user ? selected.user.name : 'Desconocido'}</p>
+            <p><strong>Vehículo:</strong> {selected.vehicle ? `${selected.vehicle.brand} ${selected.vehicle.model} - ${selected.vehicle.plate}` : 'Desconocido'}</p>
+            <p><strong>Horario:</strong> {selected.shift ? `${selected.shift.name} (${selected.shift.start_time?.slice(0,5)} - ${selected.shift.end_time?.slice(0,5)})` : 'Desconocido'}</p>
+            <p><strong>Estado:</strong> {selected.deleted_at ? 'Eliminado' : (selected.is_active ? 'Activo' : 'Inactivo')}</p>
+          </div>
+        )}
       </Dialog>
 
       {/* Modal Confirmar Eliminación */}

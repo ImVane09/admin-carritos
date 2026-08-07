@@ -6,30 +6,41 @@ import { Button } from 'primereact/button';
 import { Dropdown } from 'primereact/dropdown';
 import { Toast } from 'primereact/toast';
 import { fetchComplaints, updateComplaintStatus } from '../../services/adminService';
+import StatCardPremium from '../../components/StatCardPremium';
+
 
 export default function ComplaintsManagement() {
   const toast = useRef(null);
   const [complaints, setComplaints] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState(null);
+  const [totalRecords, setTotalRecords] = useState(0);
+  const [globalStats, setGlobalStats] = useState({ pending: 0, resolved: 0, dismissed: 0 });
+  const [lazyParams, setLazyParams] = useState({
+    first: 0,
+    rows: 10,
+    page: 0,
+  });
 
   useEffect(() => {
     loadComplaints();
-  }, [statusFilter]);
+  }, [lazyParams, statusFilter]);
 
   const loadComplaints = async () => {
     setLoading(true);
     try {
-      // Usamos el servicio fetchComplaints, con parámetros si los hubiera (el backend actualmente devuelve todos)
-      const data = await fetchComplaints();
+      const result = await fetchComplaints({ page: lazyParams.page + 1, per_page: lazyParams.rows, status: statusFilter });
       
-      // Aplicar filtro en frontend ya que getAllComplaints en backend trae todos
-      let filtered = data || [];
-      if (statusFilter) {
-        filtered = filtered.filter(c => c.status === statusFilter);
+      setComplaints(result.data || []);
+      setTotalRecords(result.total || 0);
+      
+      if (result.total_pending !== undefined) {
+        setGlobalStats({
+          pending: result.total_pending || 0,
+          resolved: result.total_resolved || 0,
+          dismissed: result.total_dismissed || 0,
+        });
       }
-      
-      setComplaints(filtered);
     } catch (err) {
       console.error(err);
       toast.current?.show({
@@ -111,6 +122,12 @@ export default function ComplaintsManagement() {
         </div>
       </div>
 
+      <div className="dashboard-grid-premium" style={{ marginBottom: '1.25rem', marginTop: '1.25rem' }}>
+        <StatCardPremium title="Total Quejas" value={totalRecords} icon="pi pi-exclamation-circle" tone="red" subtitle="Registradas en el sistema" loading={loading} />
+        <StatCardPremium title="Pendientes" value={globalStats.pending} icon="pi pi-clock" tone="amber" subtitle="A la espera de revisión" loading={loading} />
+        <StatCardPremium title="Resueltas" value={globalStats.resolved} icon="pi pi-check" tone="green" subtitle="Quejas solucionadas" loading={loading} />
+      </div>
+
       <Card className="management-table">
         <div className="management-toolbar">
           <h3>Lista de Quejas</h3>
@@ -135,7 +152,11 @@ export default function ComplaintsManagement() {
           value={complaints}
           loading={loading}
           paginator
-          rows={10}
+          lazy
+          first={lazyParams.first}
+          rows={lazyParams.rows}
+          totalRecords={totalRecords}
+          onPage={(e) => setLazyParams(e)}
           stripedRows
           responsiveLayout="scroll"
           emptyMessage="No hay quejas registradas."

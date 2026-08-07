@@ -11,6 +11,8 @@ import { Toast } from 'primereact/toast';
 import { fetchUsers, registerPassenger, updateUser, deleteUser, toggleUserStatus, restoreUser } from '../../services/adminService';
 import { ProgressSpinner } from 'primereact/progressspinner';
 import { useRef } from 'react';
+import StatCardPremium from '../../components/StatCardPremium';
+
 
 export default function PassengersManagement() {
   const toast = useRef(null);
@@ -27,6 +29,7 @@ export default function PassengersManagement() {
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [creating, setCreating] = useState(false);
   const [createForm, setCreateForm] = useState({ name: '', email: '', password: '', is_active: true });
+  const [globalStats, setGlobalStats] = useState({ inactive: 0, deleted: 0 });
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -43,6 +46,13 @@ export default function PassengersManagement() {
         const result = await fetchUsers({ per_page: 10, page, search: debouncedQuery, role_name: 'pasajero', status: statusFilter });
         setUsers(result?.data || []);
         setTotalRecords(result?.total || 0);
+        if (result?.total_inactivos !== undefined) {
+          setGlobalStats({
+            inactive: result.total_inactivos || 0,
+            deleted: result.total_eliminados || 0,
+            total: result.total_registrados || 0,
+          });
+        }
       } catch (err) {
         console.error('Error al cargar pasajeros:', err);
         toast.current?.show({
@@ -61,7 +71,7 @@ export default function PassengersManagement() {
 
   const statusBody = (row) => {
     if (row.deleted_at) {
-      return <span className="status-badge status-inactivo" style={{ backgroundColor: '#e57373', color: '#fff' }}>Suspendido</span>;
+      return <span className="status-badge status-inactivo" style={{ backgroundColor: '#e57373', color: '#fff' }}>Eliminado</span>;
     }
     return (
       <span className={`status-badge status-${row.is_active ? 'activo' : 'inactivo'}`}>
@@ -143,10 +153,10 @@ export default function PassengersManagement() {
         setUsers(users.map(u => u.id === deleteConfirm ? { ...u, deleted_at: new Date().toISOString() } : u));
       }
       setDeleteConfirm(null);
-      toast.current?.show({ severity: 'success', summary: 'Suspendido', detail: 'Pasajero suspendido correctamente' });
+      toast.current?.show({ severity: 'success', summary: 'Eliminado', detail: 'Pasajero eliminado correctamente' });
     } catch (err) {
       console.error(err);
-      toast.current?.show({ severity: 'error', summary: 'Error', detail: err.response?.data?.error || 'No se pudo suspender al pasajero' });
+      toast.current?.show({ severity: 'error', summary: 'Error', detail: err.response?.data?.error || 'No se pudo eliminar al pasajero' });
     } finally {
       setLoading(false);
     }
@@ -156,7 +166,7 @@ export default function PassengersManagement() {
     setLoading(true);
     try {
       await restoreUser(row.id);
-      if (statusFilter === 'suspended') {
+      if (statusFilter === 'deleted') {
         setUsers(users.filter(u => u.id !== row.id));
         setTotalRecords(prev => prev - 1);
       } else {
@@ -230,6 +240,19 @@ export default function PassengersManagement() {
         <Button label="Nuevo Pasajero" icon="pi pi-plus" className="p-button-primary" onClick={handleCreate} />
       </div>
 
+      <div className="dashboard-grid-premium" style={{ marginBottom: '1.25rem', marginTop: '1.25rem' }}>
+        <StatCardPremium 
+          title="Total Pasajeros" 
+          value={globalStats.total} 
+          icon="pi pi-users" 
+          tone="blue" 
+          subtitle="Registrados en sistema" 
+          loading={loading} 
+        />
+        <StatCardPremium title="Inactivos" value={globalStats.inactive} icon="pi pi-user-minus" tone="amber" subtitle="En el sistema" loading={loading} />
+        <StatCardPremium title="Eliminados" value={globalStats.deleted} icon="pi pi-trash" tone="red" subtitle="En el sistema" loading={loading} />
+      </div>
+
       <Card className="management-table">
         <div className="management-toolbar">
           <h3>Lista de Pasajeros ({totalRecords})</h3>
@@ -239,7 +262,8 @@ export default function PassengersManagement() {
               options={[
                 { label: 'Todos', value: 'all' },
                 { label: 'Activos', value: 'active' },
-                { label: 'Inactivos / Suspendidos', value: 'inactive' }
+                { label: 'Inactivos', value: 'inactive' },
+                { label: 'Eliminados', value: 'deleted' }
               ]} 
               optionLabel="label"
               optionValue="value"
@@ -283,7 +307,7 @@ export default function PassengersManagement() {
                   onClick={() => setSelected(row)}
                   title="Ver detalles"
                 />
-                {!row.deleted_at ? (
+                {!row.deleted_at && (
                   <>
                     <Button 
                       size="small" 
@@ -295,22 +319,13 @@ export default function PassengersManagement() {
                     />
                     <Button 
                       size="small" 
-                      icon="pi pi-ban" 
+                      icon="pi pi-trash" 
                       text 
                       className="p-button-danger"
                       onClick={() => handleDelete(row)}
-                      title="Suspender"
+                      title="Eliminar"
                     />
                   </>
-                ) : (
-                  <Button 
-                    size="small" 
-                    icon="pi pi-refresh" 
-                    text 
-                    className="p-button-success"
-                    onClick={() => handleRestore(row)}
-                    title="Restaurar"
-                  />
                 )}
               </div>
             )}

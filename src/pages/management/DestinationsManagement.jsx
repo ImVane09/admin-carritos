@@ -11,6 +11,7 @@ import { Toast } from 'primereact/toast';
 import { ProgressSpinner } from 'primereact/progressspinner';
 import { InputSwitch } from 'primereact/inputswitch';
 import DestinationMapPicker from '../../components/DestinationMapPicker';
+import StatCardPremium from '../../components/StatCardPremium';
 import { fetchDestinations, createDestination, updateDestination, deleteDestination } from '../../services/adminService';
 
 const DEFAULT_CENTER = [-0.9525, -80.7450];
@@ -83,6 +84,7 @@ export default function DestinationsManagement() {
   const [statusFilter, setStatusFilter] = useState(null);
   const [page, setPage] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
+  const [globalStats, setGlobalStats] = useState({ inactive: 0, deleted: 0 });
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -105,6 +107,12 @@ export default function DestinationsManagement() {
 
         setDestinations(normalized);
         setTotalRecords(result?.total || 0);
+        if (result?.total_inactivos !== undefined) {
+          setGlobalStats({
+            inactive: result.total_inactivos || 0,
+            deleted: result.total_eliminados || 0,
+          });
+        }
       } catch (err) {
         console.error('Error al cargar destinos:', err);
         setDestinations([]);
@@ -248,13 +256,19 @@ export default function DestinationsManagement() {
       <div className="management-section">
         <div className="management-header">
           <div className="management-header-left">
-            <i className="pi pi-map-marker" />
+            <i className="pi pi-map-marker" style={{ color: 'white' }} />
             <div className="management-header-content">
-              <h2>Destinos Paradas</h2>
-              <p>Gestión de puntos de parada y rutas</p>
+              <h2>Destinos</h2>
+              <p>Gestión de puntos de destino en el mapa</p>
             </div>
           </div>
-          <Button label="Nuevo Destino" icon="pi pi-plus" className="p-button-primary" onClick={openCreate} />
+          <Button label="Nuevo Destino" icon="pi pi-plus" style={{ backgroundColor: 'white', color: 'var(--primary-main)', border: 'none' }} onClick={openCreate} />
+        </div>
+
+        <div className="dashboard-grid-premium" style={{ marginBottom: '1.25rem', marginTop: '1.25rem' }}>
+          <StatCardPremium title="Total Destinos" value={totalRecords} icon="pi pi-map-marker" tone="blue" subtitle="Registrados en sistema" loading={loading} />
+          <StatCardPremium title="Inactivos" value={globalStats.inactive} icon="pi pi-compass" tone="amber" subtitle="En el sistema" loading={loading} />
+          <StatCardPremium title="Eliminados" value={globalStats.deleted} icon="pi pi-trash" tone="red" subtitle="En el sistema" loading={loading} />
         </div>
 
         <Card className="management-table">
@@ -313,7 +327,7 @@ export default function DestinationsManagement() {
               header="Estado"
               body={(row) => {
                 if (row.deleted_at) {
-                  return <span className="status-badge status-inactivo" style={{ backgroundColor: '#e57373', color: '#fff' }}>Suspendido</span>;
+                  return <span className="status-badge status-inactivo" style={{ backgroundColor: '#e57373', color: '#fff' }}>Eliminado</span>;
                 }
                 return (
                   <span className={`status-badge status-${row.is_active ? 'activo' : 'inactivo'}`}>
@@ -327,8 +341,12 @@ export default function DestinationsManagement() {
               body={(row) => (
                 <div className="action-buttons">
                   <Button size="small" icon="pi pi-eye" text onClick={() => setSelected(row)} title="Ver" />
-                  <Button size="small" icon="pi pi-pencil" text className="p-button-warning" onClick={() => openEdit(row)} title="Editar" />
-                  <Button size="small" icon="pi pi-trash" text className="p-button-danger" onClick={() => handleDelete(row)} title="Eliminar" />
+                  {!row.deleted_at && (
+                    <>
+                      <Button size="small" icon="pi pi-pencil" text className="p-button-warning" onClick={() => openEdit(row)} title="Editar" />
+                      <Button size="small" icon="pi pi-trash" text className="p-button-danger" onClick={() => handleDelete(row)} title="Eliminar" />
+                    </>
+                  )}
                 </div>
               )}
             />

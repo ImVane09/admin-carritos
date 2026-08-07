@@ -182,7 +182,8 @@ export default function VehiclesManagement() {
                   { label: 'Todos', value: null },
                   { label: 'Activos', value: 'active' },
                   { label: 'Inactivos', value: 'inactive' },
-                  { label: 'En mantenimiento', value: 'maintenance' }
+                  { label: 'En mantenimiento', value: 'maintenance' },
+                  { label: 'Eliminados', value: 'deleted' }
                 ]} 
                 optionLabel="label"
                 optionValue="value"
@@ -221,6 +222,9 @@ export default function VehiclesManagement() {
             <Column
               header="Estado"
               body={(row) => {
+                if (row.deleted_at) {
+                  return <span className="status-badge status-inactivo" style={{ backgroundColor: '#e57373', color: '#fff' }}>Eliminado</span>;
+                }
                 const statusLabels = {
                   'active': { label: 'Activo', class: 'status-activo' },
                   'inactive': { label: 'Inactivo', class: 'status-inactivo' },
@@ -239,22 +243,26 @@ export default function VehiclesManagement() {
               body={(row) => (
                 <div className="action-buttons">
                   <Button size="small" icon="pi pi-info-circle" text onClick={() => setSelected(row)} title="Ver Detalles" />
-                  <Button 
-                    size="small" 
-                    icon="pi pi-user-edit" 
-                    text 
-                    className="p-button-warning" 
-                    onClick={() => openEdit(row)} 
-                    title="Editar" 
-                  />
-                  <Button 
-                    size="small" 
-                    icon="pi pi-trash" 
-                    text 
-                    className="p-button-danger" 
-                    onClick={() => setDeleteConfirm(row)} 
-                    title="Eliminar" 
-                  />
+                  {!row.deleted_at && (
+                    <>
+                      <Button 
+                        size="small" 
+                        icon="pi pi-user-edit" 
+                        text 
+                        className="p-button-warning" 
+                        onClick={() => openEdit(row)} 
+                        title="Editar" 
+                      />
+                      <Button 
+                        size="small" 
+                        icon="pi pi-trash" 
+                        text 
+                        className="p-button-danger" 
+                        onClick={() => setDeleteConfirm(row)} 
+                        title="Eliminar" 
+                      />
+                    </>
+                  )}
                 </div>
               )}
             />

@@ -1,56 +1,73 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Button } from 'primereact/button';
-import { Card } from 'primereact/card';
-import { Column } from 'primereact/column';
-import { DataTable } from 'primereact/datatable';
-import { Dialog } from 'primereact/dialog';
-import { InputText } from 'primereact/inputtext';
-import { InputSwitch } from 'primereact/inputswitch';
-import { Dropdown } from 'primereact/dropdown';
-import { Toast } from 'primereact/toast';
-import { Checkbox } from 'primereact/checkbox';
-import { fetchUsers, createUserAdmin, updateUser, deleteUser, toggleUserStatus, restoreUser } from '../../services/adminService';
-import { ProgressSpinner } from 'primereact/progressspinner';
-import { useRef } from 'react';
+import { useEffect, useMemo, useState } from "react";
+import { Button } from "primereact/button";
+import { Card } from "primereact/card";
+import { Column } from "primereact/column";
+import { DataTable } from "primereact/datatable";
+import { Dialog } from "primereact/dialog";
+import { InputText } from "primereact/inputtext";
+import { InputSwitch } from "primereact/inputswitch";
+import { Dropdown } from "primereact/dropdown";
+import { Toast } from "primereact/toast";
+import { Checkbox } from "primereact/checkbox";
+import {
+  fetchUsers,
+  createUserAdmin,
+  updateUser,
+  deleteUser,
+  toggleUserStatus,
+  restoreUser,
+} from "../../services/adminService";
+import { ProgressSpinner } from "primereact/progressspinner";
+import { useRef } from "react";
+import StatCardPremium from "../../components/StatCardPremium";
 
 const PERMISSIONS_LIST = [
-  { id: 1, name: 'view_dashboard', label: 'Ver Dashboard' },
-  { id: 2, name: 'view_driver_reports', label: 'Ver Reportes de Conductores' },
-  { id: 3, name: 'view_route_reports', label: 'Ver Reportes de Rutas' },
-  { id: 4, name: 'view_passenger_reports', label: 'Ver Reportes de Pasajeros' },
-  { id: 5, name: 'manage_users', label: 'Gestionar Usuarios' },
-  { id: 6, name: 'manage_admins', label: 'Gestionar Administradores' },
-  { id: 7, name: 'manage_vehicles', label: 'Gestionar Vehículos' },
-  { id: 8, name: 'manage_destinations', label: 'Gestionar Destinos' },
-  { id: 9, name: 'view_history', label: 'Ver Historial de Viajes' }
+  { id: 1, name: "view_dashboard", label: "Ver Dashboard" },
+  { id: 2, name: "view_driver_reports", label: "Ver Reportes de Conductores" },
+  { id: 3, name: "view_route_reports", label: "Ver Reportes de Rutas" },
+  { id: 4, name: "view_passenger_reports", label: "Ver Reportes de Pasajeros" },
+  { id: 5, name: "manage_users", label: "Gestionar Usuarios" },
+  { id: 6, name: "manage_admins", label: "Gestionar Administradores" },
+  { id: 7, name: "manage_vehicles", label: "Gestionar Vehículos" },
+  { id: 8, name: "manage_destinations", label: "Gestionar Destinos" },
+  { id: 9, name: "view_history", label: "Ver Historial de Viajes" },
 ];
 
 export default function AdminsManagement() {
   const toast = useRef(null);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(null);
   const [editing, setEditing] = useState(null);
   const [editForm, setEditForm] = useState({});
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [creating, setCreating] = useState(false);
-  const [createForm, setCreateForm] = useState({ name: '', email: '', password: '', is_active: true, permissions: [] });
+  const [createForm, setCreateForm] = useState({
+    name: "",
+    email: "",
+    password: "",
+    is_active: true,
+    permissions: [],
+  });
 
   const onPermissionChange = (e, formState, setFormState) => {
     let selectedPermissions = [...formState.permissions];
     if (e.checked) {
       selectedPermissions.push(e.value);
     } else {
-      selectedPermissions = selectedPermissions.filter((val) => val !== e.value);
+      selectedPermissions = selectedPermissions.filter(
+        (val) => val !== e.value,
+      );
     }
     setFormState({ ...formState, permissions: selectedPermissions });
   };
 
-  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState(null);
   const [page, setPage] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
+  const [globalStats, setGlobalStats] = useState({ inactive: 0, deleted: 0 });
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -64,15 +81,29 @@ export default function AdminsManagement() {
     const load = async () => {
       setLoading(true);
       try {
-        const result = await fetchUsers({ per_page: 10, page, search: debouncedQuery, role_id: 1, status: statusFilter });
+        const result = await fetchUsers({
+          per_page: 10,
+          page,
+          search: debouncedQuery,
+          role_id: 1,
+          status: statusFilter,
+        });
         setUsers(result?.data || []);
         setTotalRecords(result?.total || 0);
+        if (result?.total_inactivos !== undefined) {
+          setGlobalStats({
+            inactive: result.total_inactivos || 0,
+            deleted: result.total_eliminados || 0,
+            total: result.total_registrados || 0,
+          });
+        }
       } catch (err) {
-        console.error('Error al cargar administradores:', err);
+        console.error("Error al cargar administradores:", err);
         toast.current?.show({
-          severity: 'error',
-          summary: 'Error',
-          detail: 'No se pudieron cargar los administradores desde el servidor.'
+          severity: "error",
+          summary: "Error",
+          detail:
+            "No se pudieron cargar los administradores desde el servidor.",
         });
         setUsers([]);
         setTotalRecords(0);
@@ -85,11 +116,20 @@ export default function AdminsManagement() {
 
   const statusBody = (row) => {
     if (row.deleted_at) {
-      return <span className="status-badge status-inactivo" style={{ backgroundColor: '#e57373', color: '#fff' }}>Suspendido</span>;
+      return (
+        <span
+          className="status-badge status-inactivo"
+          style={{ backgroundColor: "#e57373", color: "#fff" }}
+        >
+          Eliminado
+        </span>
+      );
     }
     return (
-      <span className={`status-badge status-${row.is_active ? 'activo' : 'inactivo'}`}>
-        {row.is_active ? 'Activo' : 'Inactivo'}
+      <span
+        className={`status-badge status-${row.is_active ? "activo" : "inactivo"}`}
+      >
+        {row.is_active ? "Activo" : "Inactivo"}
       </span>
     );
   };
@@ -98,13 +138,19 @@ export default function AdminsManagement() {
     setEditing(row.id);
     const userPerms = row.permissions || [];
     // Convert names to IDs
-    const permIds = PERMISSIONS_LIST.filter(p => userPerms.includes(p.name)).map(p => p.id);
-    setEditForm({ ...row, password: '', permissions: permIds });
+    const permIds = PERMISSIONS_LIST.filter((p) =>
+      userPerms.includes(p.name),
+    ).map((p) => p.id);
+    setEditForm({ ...row, password: "", permissions: permIds });
   };
 
   const handleSave = async () => {
     if (!editForm.name?.trim() || !editForm.email?.trim()) {
-      toast.current?.show({ severity: 'warn', summary: 'Datos incompletos', detail: 'Por favor, rellena nombre y correo.' });
+      toast.current?.show({
+        severity: "warn",
+        summary: "Datos incompletos",
+        detail: "Por favor, rellena nombre y correo.",
+      });
       return;
     }
 
@@ -114,7 +160,7 @@ export default function AdminsManagement() {
       const payload = {
         name: editForm.name,
         email: editForm.email,
-        permissions: editForm.permissions || []
+        permissions: editForm.permissions || [],
       };
       if (editForm.password?.trim()) {
         payload.password = editForm.password.trim();
@@ -122,36 +168,44 @@ export default function AdminsManagement() {
       const response = await updateUser(editForm.id, payload);
 
       // 2. Si el estado "activo" cambió, ejecutar el toggle
-      const original = users.find(u => u.id === editForm.id);
+      const original = users.find((u) => u.id === editForm.id);
       let activeState = !!editForm.is_active;
-      if (original && (!!original.is_active !== !!editForm.is_active)) {
+      if (original && !!original.is_active !== !!editForm.is_active) {
         const toggleRes = await toggleUserStatus(editForm.id);
         if (toggleRes && toggleRes.user) {
           activeState = !!toggleRes.user.is_active;
         }
       }
 
-      const merged = { 
-        ...editForm, 
+      const merged = {
+        ...editForm,
         ...response.user,
-        is_active: activeState
+        is_active: activeState,
       };
-      
-      if (statusFilter === 'active' && !activeState) {
-        setUsers(users.filter(u => u.id !== editForm.id));
-        setTotalRecords(prev => prev - 1);
-      } else if (statusFilter === 'inactive' && activeState) {
-        setUsers(users.filter(u => u.id !== editForm.id));
-        setTotalRecords(prev => prev - 1);
+
+      if (statusFilter === "active" && !activeState) {
+        setUsers(users.filter((u) => u.id !== editForm.id));
+        setTotalRecords((prev) => prev - 1);
+      } else if (statusFilter === "inactive" && activeState) {
+        setUsers(users.filter((u) => u.id !== editForm.id));
+        setTotalRecords((prev) => prev - 1);
       } else {
-        setUsers(users.map(u => u.id === editForm.id ? merged : u));
+        setUsers(users.map((u) => (u.id === editForm.id ? merged : u)));
       }
 
       setEditing(null);
-      toast.current?.show({ severity: 'success', summary: 'Éxito', detail: 'Administrador actualizado correctamente' });
+      toast.current?.show({
+        severity: "success",
+        summary: "Éxito",
+        detail: "Administrador actualizado correctamente",
+      });
     } catch (err) {
       console.error(err);
-      toast.current?.show({ severity: 'error', summary: 'Error al actualizar', detail: err.response?.data?.error || 'Error en el servidor' });
+      toast.current?.show({
+        severity: "error",
+        summary: "Error al actualizar",
+        detail: err.response?.data?.error || "Error en el servidor",
+      });
     } finally {
       setLoading(false);
     }
@@ -165,17 +219,32 @@ export default function AdminsManagement() {
     setLoading(true);
     try {
       await deleteUser(deleteConfirm);
-      if (statusFilter === 'active' || statusFilter === 'inactive') {
-        setUsers(users.filter(u => u.id !== deleteConfirm));
-        setTotalRecords(prev => prev - 1);
+      if (statusFilter === "active" || statusFilter === "inactive") {
+        setUsers(users.filter((u) => u.id !== deleteConfirm));
+        setTotalRecords((prev) => prev - 1);
       } else {
-        setUsers(users.map(u => u.id === deleteConfirm ? { ...u, deleted_at: new Date().toISOString() } : u));
+        setUsers(
+          users.map((u) =>
+            u.id === deleteConfirm
+              ? { ...u, deleted_at: new Date().toISOString() }
+              : u,
+          ),
+        );
       }
       setDeleteConfirm(null);
-      toast.current?.show({ severity: 'success', summary: 'Suspendido', detail: 'Administrador suspendido correctamente' });
+      toast.current?.show({
+        severity: "success",
+        summary: "Eliminado",
+        detail: "Administrador eliminado correctamente",
+      });
     } catch (err) {
       console.error(err);
-      toast.current?.show({ severity: 'error', summary: 'Error', detail: err.response?.data?.error || 'No se pudo suspender al administrador' });
+      toast.current?.show({
+        severity: "error",
+        summary: "Error",
+        detail:
+          err.response?.data?.error || "No se pudo eliminar al administrador",
+      });
     } finally {
       setLoading(false);
     }
@@ -185,16 +254,27 @@ export default function AdminsManagement() {
     setLoading(true);
     try {
       await restoreUser(row.id);
-      if (statusFilter === 'suspended') {
-        setUsers(users.filter(u => u.id !== row.id));
-        setTotalRecords(prev => prev - 1);
+      if (statusFilter === "deleted") {
+        setUsers(users.filter((u) => u.id !== row.id));
+        setTotalRecords((prev) => prev - 1);
       } else {
-        setUsers(users.map(u => u.id === row.id ? { ...u, deleted_at: null } : u));
+        setUsers(
+          users.map((u) => (u.id === row.id ? { ...u, deleted_at: null } : u)),
+        );
       }
-      toast.current?.show({ severity: 'success', summary: 'Restaurado', detail: 'Administrador restaurado correctamente' });
+      toast.current?.show({
+        severity: "success",
+        summary: "Restaurado",
+        detail: "Administrador restaurado correctamente",
+      });
     } catch (err) {
       console.error(err);
-      toast.current?.show({ severity: 'error', summary: 'Error', detail: err.response?.data?.error || 'No se pudo restaurar al administrador' });
+      toast.current?.show({
+        severity: "error",
+        summary: "Error",
+        detail:
+          err.response?.data?.error || "No se pudo restaurar al administrador",
+      });
     } finally {
       setLoading(false);
     }
@@ -202,16 +282,34 @@ export default function AdminsManagement() {
 
   const handleCreate = () => {
     setCreating(true);
-    setCreateForm({ name: '', email: '', password: '', is_active: true, permissions: [] });
+    setCreateForm({
+      name: "",
+      email: "",
+      password: "",
+      is_active: true,
+      permissions: [],
+    });
   };
 
   const handleCreateSave = async () => {
-    if (!createForm.name?.trim() || !createForm.email?.trim() || !createForm.password?.trim()) {
-      toast.current?.show({ severity: 'warn', summary: 'Datos incompletos', detail: 'Por favor complete nombre, correo y contraseña.' });
+    if (
+      !createForm.name?.trim() ||
+      !createForm.email?.trim() ||
+      !createForm.password?.trim()
+    ) {
+      toast.current?.show({
+        severity: "warn",
+        summary: "Datos incompletos",
+        detail: "Por favor complete nombre, correo y contraseña.",
+      });
       return;
     }
     if (createForm.password.length < 8) {
-      toast.current?.show({ severity: 'warn', summary: 'Contraseña muy corta', detail: 'La contraseña debe tener al menos 8 caracteres.' });
+      toast.current?.show({
+        severity: "warn",
+        summary: "Contraseña muy corta",
+        detail: "La contraseña debe tener al menos 8 caracteres.",
+      });
       return;
     }
 
@@ -221,275 +319,703 @@ export default function AdminsManagement() {
         name: createForm.name.trim(),
         email: createForm.email.trim(),
         password: createForm.password.trim(),
-        permissions: createForm.permissions || []
+        permissions: createForm.permissions || [],
       });
 
       const merged = {
         ...response,
-        rol: { rol_name: 'admin' },
-        created_at: new Date().toISOString()
+        rol: { rol_name: "admin" },
+        created_at: new Date().toISOString(),
       };
 
       setUsers([merged, ...users]);
-      setTotalRecords(prev => prev + 1);
+      setTotalRecords((prev) => prev + 1);
       setCreating(false);
-      toast.current?.show({ severity: 'success', summary: 'Creado', detail: 'Administrador creado correctamente' });
+      toast.current?.show({
+        severity: "success",
+        summary: "Creado",
+        detail: "Administrador creado correctamente",
+      });
     } catch (err) {
       console.error(err);
-      toast.current?.show({ severity: 'error', summary: 'Error al crear', detail: err.response?.data?.error || err.response?.data?.message || 'Error del servidor' });
+      toast.current?.show({
+        severity: "error",
+        summary: "Error al crear",
+        detail:
+          err.response?.data?.error ||
+          err.response?.data?.message ||
+          "Error del servidor",
+      });
     } finally {
       setLoading(false);
     }
   };
 
-
-
-
-
   return (
     <>
-    <Toast ref={toast} />
-    <div className="management-section">
-      <div className="management-header">
-        <div className="management-header-left">
-          <i className="pi pi-shield" />
-          <div className="management-header-content">
-            <h2>Administradores</h2>
-            <p>Gestión de cuentas administrativas del sistema</p>
-          </div>
-        </div>
-        <Button label="Nuevo Admin" icon="pi pi-plus" className="p-button-primary" onClick={handleCreate} />
-      </div>
+      <Toast ref={toast} />
 
-      <Card className="management-table">
-        <div className="management-toolbar">
-          <h3>Lista de Administradores ({totalRecords})</h3>
-          <div className="management-toolbar-filters">
-            <Dropdown 
-              value={statusFilter} 
-              options={[
-                { label: 'Todos', value: 'all' },
-                { label: 'Activos', value: 'active' },
-                { label: 'Inactivos / Suspendidos', value: 'inactive' }
-              ]} 
-              optionLabel="label"
-              optionValue="value"
-              onChange={(e) => { setStatusFilter(e.value); setPage(1); }} 
-              placeholder="Filtrar por estado" 
-            />
-            <span className="p-input-icon-left">
-              <i className="pi pi-search" />
-              <InputText 
-                value={query} 
-                onChange={(e) => setQuery(e.target.value)} 
-                placeholder="Buscar por nombre o correo" 
-              />
-            </span>
+      <div className="management-section">
+        <div className="management-header">
+          <div className="management-header-left">
+            <i className="pi pi-shield" />
+            <div className="management-header-content">
+              <h2>Administradores</h2>
+              <p>Gestión de cuentas administrativas del sistema</p>
+            </div>
           </div>
-        </div>
-
-        <DataTable 
-          value={users} 
-          lazy
-          paginator 
-          first={(page - 1) * 10}
-          rows={10} 
-          totalRecords={totalRecords}
-          onPage={(e) => setPage(e.page + 1)}
-          loading={loading} 
-          stripedRows 
-          responsiveLayout="scroll"
-        >
-          <Column field="name" header="Nombre" sortable />
-          <Column field="email" header="Correo" sortable />
-          <Column header="Estado" body={statusBody} />
-          <Column
-            header="Acciones"
-            body={(row) => (
-              <div className="action-buttons">
-                <Button 
-                  size="small" 
-                  icon="pi pi-eye" 
-                  text 
-                  onClick={() => setSelected(row)}
-                  title="Ver detalles"
-                />
-                {!row.deleted_at ? (
-                  <>
-                    <Button 
-                      size="small" 
-                      icon="pi pi-pencil" 
-                      text 
-                      className="p-button-warning"
-                      onClick={() => handleEdit(row)}
-                      title="Editar"
-                    />
-                    <Button 
-                      size="small" 
-                      icon="pi pi-ban" 
-                      text 
-                      className="p-button-danger"
-                      onClick={() => handleDelete(row)}
-                      title="Suspender"
-                    />
-                  </>
-                ) : (
-                  <Button 
-                    size="small" 
-                    icon="pi pi-refresh" 
-                    text 
-                    className="p-button-success"
-                    onClick={() => handleRestore(row)}
-                    title="Restaurar"
-                  />
-                )}
-              </div>
-            )}
+          <Button
+            label="Nuevo Admin"
+            icon="pi pi-plus"
+            className="p-button-primary"
+            onClick={handleCreate}
           />
-        </DataTable>
-      </Card>
+        </div>
 
-      <Dialog
-        header="Detalles del Administrador"
-        visible={!!selected}
-        style={{ width: '30rem' }}
-        onHide={() => setSelected(null)}
-        dismissableMask
-      >
-        {selected && (
-          <div className="user-detail-card" style={{ padding: '0.5rem 0' }}>
-            <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+        <div
+          className="dashboard-grid-premium"
+          style={{ marginBottom: "1.25rem", marginTop: "1.25rem" }}
+        >
+          <StatCardPremium
+            title="Total Administradores"
+            value={globalStats.total}
+            icon="pi pi-shield"
+            tone="blue"
+            subtitle="Registrados en sistema"
+            loading={loading}
+          />
+          <StatCardPremium
+            title="Inactivos"
+            value={globalStats.inactive}
+            icon="pi pi-user-minus"
+            tone="amber"
+            subtitle="En el sistema"
+            loading={loading}
+          />
+          <StatCardPremium
+            title="Eliminados"
+            value={globalStats.deleted}
+            icon="pi pi-trash"
+            tone="red"
+            subtitle="En el sistema"
+            loading={loading}
+          />
+        </div>
+
+        <Card className="management-table">
+          <div className="management-toolbar">
+            <h3>Lista de Administradores ({totalRecords})</h3>
+            <div className="management-toolbar-filters">
+              <Dropdown
+                value={statusFilter}
+                options={[
+                  { label: "Todos", value: "all" },
+                  { label: "Activos", value: "active" },
+                  { label: "Inactivos", value: "inactive" },
+                  { label: "Eliminados", value: "deleted" },
+                ]}
+                optionLabel="label"
+                optionValue="value"
+                onChange={(e) => {
+                  setStatusFilter(e.value);
+                  setPage(1);
+                }}
+                placeholder="Filtrar por estado"
+              />
+              <span className="p-input-icon-left">
+                <i className="pi pi-search" />
+                <InputText
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Buscar por nombre o correo"
+                />
+              </span>
+            </div>
+          </div>
+
+          <DataTable
+            value={users}
+            lazy
+            paginator
+            first={(page - 1) * 10}
+            rows={10}
+            totalRecords={totalRecords}
+            onPage={(e) => setPage(e.page + 1)}
+            loading={loading}
+            stripedRows
+            responsiveLayout="scroll"
+          >
+            <Column field="name" header="Nombre" sortable />
+            <Column field="email" header="Correo" sortable />
+            <Column header="Estado" body={statusBody} />
+            <Column
+              header="Acciones"
+              body={(row) => (
+                <div className="action-buttons">
+                  <Button
+                    size="small"
+                    icon="pi pi-eye"
+                    text
+                    onClick={() => setSelected(row)}
+                    title="Ver detalles"
+                  />
+                  {!row.deleted_at && (
+                    <>
+                      <Button
+                        size="small"
+                        icon="pi pi-pencil"
+                        text
+                        className="p-button-warning"
+                        onClick={() => handleEdit(row)}
+                        title="Editar"
+                      />
+                      <Button
+                        size="small"
+                        icon="pi pi-trash"
+                        text
+                        className="p-button-danger"
+                        onClick={() => handleDelete(row)}
+                        title="Eliminar"
+                      />
+                    </>
+                  )}
+                </div>
+              )}
+            />
+          </DataTable>
+        </Card>
+
+        <Dialog
+          header="Detalles del Administrador"
+          visible={!!selected}
+          style={{ width: "30rem" }}
+          onHide={() => setSelected(null)}
+          dismissableMask
+        >
+          {selected && (
+            <div className="user-detail-card" style={{ padding: "0.5rem 0" }}>
+              <div style={{ textAlign: "center", marginBottom: "1.5rem" }}>
+                <div
+                  style={{
+                    width: "64px",
+                    height: "64px",
+                    borderRadius: "50%",
+                    backgroundColor: "var(--brand-700)",
+                    color: "white",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "1.5rem",
+                    fontWeight: "bold",
+                    margin: "0 auto 0.5rem auto",
+                    boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
+                  }}
+                >
+                  {selected.name?.slice(0, 1).toUpperCase()}
+                </div>
+                <h3
+                  style={{
+                    margin: "0.3rem 0",
+                    color: "var(--brand-900)",
+                    fontSize: "1.35rem",
+                    fontWeight: "600",
+                  }}
+                >
+                  {selected.name}
+                </h3>
+                <p
+                  style={{
+                    color: "var(--ink-500)",
+                    fontSize: "0.85rem",
+                    margin: 0,
+                  }}
+                >
+                  ID de Administrador: #{selected.id}
+                </p>
+              </div>
+
               <div
                 style={{
-                  width: '64px',
-                  height: '64px',
-                  borderRadius: '50%',
-                  backgroundColor: 'var(--brand-700)',
-                  color: 'white',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '1.5rem',
-                  fontWeight: 'bold',
-                  margin: '0 auto 0.5rem auto',
-                  boxShadow: '0 4px 10px rgba(0,0,0,0.1)',
+                  display: "grid",
+                  gap: "1rem",
+                  borderTop: "1px solid var(--border)",
+                  paddingTop: "1.2rem",
                 }}
               >
-                {selected.name?.slice(0, 1).toUpperCase()}
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
+                  <span
+                    style={{
+                      color: "var(--ink-500)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.5rem",
+                    }}
+                  >
+                    <i
+                      className="pi pi-envelope"
+                      style={{ color: "var(--brand-500)" }}
+                    />{" "}
+                    Correo Electrónico:
+                  </span>
+                  <strong
+                    style={{
+                      color: "var(--ink-900)",
+                      wordBreak: "break-all",
+                      marginLeft: "1rem",
+                      textAlign: "right",
+                    }}
+                  >
+                    {selected.email}
+                  </strong>
+                </div>
+
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
+                  <span
+                    style={{
+                      color: "var(--ink-500)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.5rem",
+                    }}
+                  >
+                    <i
+                      className="pi pi-shield"
+                      style={{ color: "var(--brand-500)" }}
+                    />{" "}
+                    Rol:
+                  </span>
+                  <span className="role-badge role-admin" style={{ margin: 0 }}>
+                    <i
+                      className="pi pi-shield"
+                      style={{ marginRight: "0.25rem" }}
+                    />{" "}
+                    Administrador
+                  </span>
+                </div>
+
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
+                  <span
+                    style={{
+                      color: "var(--ink-500)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.5rem",
+                    }}
+                  >
+                    <i
+                      className="pi pi-check-circle"
+                      style={{ color: "var(--brand-500)" }}
+                    />{" "}
+                    Estado de cuenta:
+                  </span>
+                  <span
+                    className={`status-badge status-${selected.is_active ? "activo" : "inactivo"}`}
+                    style={{ margin: 0 }}
+                  >
+                    {selected.is_active ? "Activo" : "Inactivo"}
+                  </span>
+                </div>
+
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
+                  <span
+                    style={{
+                      color: "var(--ink-500)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.5rem",
+                    }}
+                  >
+                    <i
+                      className="pi pi-calendar"
+                      style={{ color: "var(--brand-500)" }}
+                    />{" "}
+                    Fecha de Registro:
+                  </span>
+                  <strong style={{ color: "var(--ink-900)" }}>
+                    {new Date(selected.created_at).toLocaleDateString("es-ES", {
+                      dateStyle: "medium",
+                    })}
+                  </strong>
+                </div>
               </div>
-              <h3 style={{ margin: '0.3rem 0', color: 'var(--brand-900)', fontSize: '1.35rem', fontWeight: '600' }}>{selected.name}</h3>
-              <p style={{ color: 'var(--ink-500)', fontSize: '0.85rem', margin: 0 }}>ID de Administrador: #{selected.id}</p>
+
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  marginTop: "2rem",
+                  borderTop: "1px solid var(--border)",
+                  paddingTop: "1rem",
+                }}
+              >
+                <Button
+                  label="Cancelar"
+                  onClick={() => setSelected(null)}
+                  className="p-button-text"
+                  style={{ borderRadius: "8px" }}
+                />
+              </div>
+            </div>
+          )}
+        </Dialog>
+
+        <Dialog
+          header="Editar Administrador"
+          visible={!!editing}
+          style={{ width: "32rem" }}
+          onHide={() => setEditing(null)}
+        >
+          {editForm && (
+            <div
+              style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
+            >
+              <div>
+                <label
+                  htmlFor="name"
+                  style={{ display: "block", marginBottom: "0.5rem" }}
+                >
+                  <strong>Nombre</strong>
+                </label>
+                <InputText
+                  id="name"
+                  value={editForm.name || ""}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, name: e.target.value })
+                  }
+                  className="w-full"
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="email"
+                  style={{ display: "block", marginBottom: "0.5rem" }}
+                >
+                  <strong>Correo</strong>
+                </label>
+                <InputText
+                  id="email"
+                  value={editForm.email || ""}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, email: e.target.value })
+                  }
+                  className="w-full"
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="password"
+                  style={{ display: "block", marginBottom: "0.5rem" }}
+                >
+                  <strong>Nueva Contraseña (Opcional)</strong>
+                </label>
+                <InputText
+                  id="password"
+                  type="password"
+                  value={editForm.password || ""}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, password: e.target.value })
+                  }
+                  className="w-full"
+                  placeholder="Dejar vacío para no cambiar"
+                />
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <label htmlFor="is_active">
+                  <strong>Activo</strong>
+                </label>
+                <InputSwitch
+                  id="is_active"
+                  checked={editForm.is_active || false}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, is_active: e.value })
+                  }
+                />
+              </div>
+
+              <div
+                style={{
+                  borderTop: "1px solid var(--border)",
+                  paddingTop: "1rem",
+                }}
+              >
+                <label style={{ display: "block", marginBottom: "0.5rem" }}>
+                  <strong>Permisos Especiales</strong>
+                </label>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "0.5rem",
+                  }}
+                >
+                  {PERMISSIONS_LIST.map((permission) => (
+                    <div
+                      key={permission.id}
+                      style={{ display: "flex", alignItems: "center" }}
+                    >
+                      <Checkbox
+                        inputId={`perm-${permission.id}`}
+                        name="permission"
+                        value={permission.id}
+                        onChange={(e) =>
+                          onPermissionChange(e, editForm, setEditForm)
+                        }
+                        checked={editForm.permissions?.includes(permission.id)}
+                      />
+                      <label
+                        htmlFor={`perm-${permission.id}`}
+                        style={{
+                          marginLeft: "0.5rem",
+                          fontSize: "0.9rem",
+                          cursor: "pointer",
+                        }}
+                      >
+                        {permission.label}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  gap: "1rem",
+                  justifyContent: "flex-end",
+                  marginTop: "1rem",
+                }}
+              >
+                <Button
+                  label="Cancelar"
+                  onClick={() => setEditing(null)}
+                  className="p-button-text"
+                />
+                <Button
+                  label="Guardar"
+                  onClick={handleSave}
+                  className="p-button-primary"
+                />
+              </div>
+            </div>
+          )}
+        </Dialog>
+
+        <Dialog
+          visible={!!deleteConfirm}
+          style={{ width: "26rem", borderRadius: "16px" }}
+          onHide={() => setDeleteConfirm(null)}
+          showHeader={false}
+        >
+          <div
+            style={{
+              padding: "1.5rem 1rem 1rem 1rem",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              textAlign: "center",
+            }}
+          >
+            <div
+              style={{
+                width: "3.25rem",
+                height: "3.25rem",
+                borderRadius: "50%",
+                backgroundColor: "#fee2e2",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#dc2626",
+                fontSize: "1.5rem",
+                marginBottom: "1rem",
+                boxShadow: "0 4px 10px rgba(220, 38, 38, 0.15)",
+              }}
+            >
+              <i className="pi pi-exclamation-triangle" />
             </div>
 
-            <div style={{ display: 'grid', gap: '1rem', borderTop: '1px solid var(--border)', paddingTop: '1.2rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ color: 'var(--ink-500)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <i className="pi pi-envelope" style={{ color: 'var(--brand-500)' }} /> Correo Electrónico:
-                </span>
-                <strong style={{ color: 'var(--ink-900)', wordBreak: 'break-all', marginLeft: '1rem', textAlign: 'right' }}>{selected.email}</strong>
-              </div>
-              
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ color: 'var(--ink-500)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <i className="pi pi-shield" style={{ color: 'var(--brand-500)' }} /> Rol:
-                </span>
-                <span className="role-badge role-admin" style={{ margin: 0 }}>
-                  <i className="pi pi-shield" style={{ marginRight: '0.25rem' }} /> Administrador
-                </span>
-              </div>
+            <h3
+              style={{
+                margin: "0 0 0.5rem 0",
+                fontSize: "1.2rem",
+                fontWeight: 700,
+                color: "#0f172a",
+                fontFamily: "'Outfit', sans-serif",
+              }}
+            >
+              ¿Confirmar suspensión?
+            </h3>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ color: 'var(--ink-500)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <i className="pi pi-check-circle" style={{ color: 'var(--brand-500)' }} /> Estado de cuenta:
-                </span>
-                <span className={`status-badge status-${selected.is_active ? 'activo' : 'inactivo'}`} style={{ margin: 0 }}>
-                  {selected.is_active ? 'Activo' : 'Inactivo'}
-                </span>
-              </div>
-              
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ color: 'var(--ink-500)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <i className="pi pi-calendar" style={{ color: 'var(--brand-500)' }} /> Fecha de Registro:
-                </span>
-                <strong style={{ color: 'var(--ink-900)' }}>
-                  {new Date(selected.created_at).toLocaleDateString('es-ES', {
-                    dateStyle: 'medium'
-                  })}
-                </strong>
-              </div>
-            </div>
-            
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '2rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
+            <p
+              style={{
+                margin: "0 0 1.5rem 0",
+                fontSize: "0.9rem",
+                color: "#64748b",
+                lineHeight: "1.45",
+                fontFamily: "'Outfit', sans-serif",
+              }}
+            >
+              ¿Está seguro que desea suspender a este administrador? Podrá
+              restaurarlo o volver a activarlo en cualquier momento más
+              adelante.
+            </p>
+
+            <div style={{ display: "flex", gap: "0.75rem", width: "100%" }}>
               <Button
                 label="Cancelar"
-                onClick={() => setSelected(null)}
+                onClick={() => setDeleteConfirm(null)}
                 className="p-button-text"
-                style={{ borderRadius: '8px' }}
+                style={{ flex: 1, borderRadius: "8px" }}
+              />
+              <Button
+                label="Suspender"
+                onClick={confirmDelete}
+                style={{
+                  flex: 1,
+                  borderRadius: "8px",
+                  backgroundColor: "#dc2626",
+                  border: "none",
+                  color: "#ffffff",
+                  fontWeight: 600,
+                  fontSize: "0.9rem",
+                  padding: "0.65rem 0",
+                  cursor: "pointer",
+                  boxShadow: "0 4px 12px rgba(220, 38, 38, 0.2)",
+                }}
               />
             </div>
           </div>
-        )}
-      </Dialog>
+        </Dialog>
 
-      <Dialog
-        header="Editar Administrador"
-        visible={!!editing}
-        style={{ width: '32rem' }}
-        onHide={() => setEditing(null)}
-      >
-        {editForm && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <Dialog
+          header="Crear Nuevo Administrador"
+          visible={creating}
+          style={{ width: "32rem" }}
+          onHide={() => setCreating(false)}
+        >
+          <div
+            style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
+          >
             <div>
-              <label htmlFor="name" style={{ display: 'block', marginBottom: '0.5rem' }}><strong>Nombre</strong></label>
+              <label
+                htmlFor="createName"
+                style={{ display: "block", marginBottom: "0.5rem" }}
+              >
+                <strong>Nombre</strong>
+              </label>
               <InputText
-                id="name"
-                value={editForm.name || ''}
-                onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                id="createName"
+                value={createForm.name || ""}
+                onChange={(e) =>
+                  setCreateForm({ ...createForm, name: e.target.value })
+                }
                 className="w-full"
+                placeholder="Nombre completo"
               />
             </div>
             <div>
-              <label htmlFor="email" style={{ display: 'block', marginBottom: '0.5rem' }}><strong>Correo</strong></label>
+              <label
+                htmlFor="createEmail"
+                style={{ display: "block", marginBottom: "0.5rem" }}
+              >
+                <strong>Correo</strong>
+              </label>
               <InputText
-                id="email"
-                value={editForm.email || ''}
-                onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                id="createEmail"
+                value={createForm.email || ""}
+                onChange={(e) =>
+                  setCreateForm({ ...createForm, email: e.target.value })
+                }
                 className="w-full"
+                placeholder="correo@example.com"
               />
             </div>
             <div>
-              <label htmlFor="password" style={{ display: 'block', marginBottom: '0.5rem' }}><strong>Nueva Contraseña (Opcional)</strong></label>
+              <label
+                htmlFor="createPassword"
+                style={{ display: "block", marginBottom: "0.5rem" }}
+              >
+                <strong>Contraseña</strong>
+              </label>
               <InputText
-                id="password"
+                id="createPassword"
                 type="password"
-                value={editForm.password || ''}
-                onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
+                value={createForm.password || ""}
+                onChange={(e) =>
+                  setCreateForm({ ...createForm, password: e.target.value })
+                }
                 className="w-full"
-                placeholder="Dejar vacío para no cambiar"
+                placeholder="Mínimo 8 caracteres"
               />
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <label htmlFor="is_active"><strong>Activo</strong></label>
-              <InputSwitch
-                id="is_active"
-                checked={editForm.is_active || false}
-                onChange={(e) => setEditForm({ ...editForm, is_active: e.value })}
-              />
-            </div>
-            
-            <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem' }}><strong>Permisos Especiales</strong></label>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+
+            <div
+              style={{
+                borderTop: "1px solid var(--border)",
+                paddingTop: "1rem",
+              }}
+            >
+              <label style={{ display: "block", marginBottom: "0.5rem" }}>
+                <strong>Permisos Especiales</strong>
+              </label>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "0.5rem",
+                }}
+              >
                 {PERMISSIONS_LIST.map((permission) => (
-                  <div key={permission.id} style={{ display: 'flex', alignItems: 'center' }}>
+                  <div
+                    key={permission.id}
+                    style={{ display: "flex", alignItems: "center" }}
+                  >
                     <Checkbox
-                      inputId={`perm-${permission.id}`}
+                      inputId={`cperm-${permission.id}`}
                       name="permission"
                       value={permission.id}
-                      onChange={(e) => onPermissionChange(e, editForm, setEditForm)}
-                      checked={editForm.permissions?.includes(permission.id)}
+                      onChange={(e) =>
+                        onPermissionChange(e, createForm, setCreateForm)
+                      }
+                      checked={createForm.permissions?.includes(permission.id)}
                     />
-                    <label htmlFor={`perm-${permission.id}`} style={{ marginLeft: '0.5rem', fontSize: '0.9rem', cursor: 'pointer' }}>
+                    <label
+                      htmlFor={`cperm-${permission.id}`}
+                      style={{
+                        marginLeft: "0.5rem",
+                        fontSize: "0.9rem",
+                        cursor: "pointer",
+                      }}
+                    >
                       {permission.label}
                     </label>
                   </div>
@@ -497,151 +1023,28 @@ export default function AdminsManagement() {
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
-              <Button label="Cancelar" onClick={() => setEditing(null)} className="p-button-text" />
-              <Button label="Guardar" onClick={handleSave} className="p-button-primary" />
-            </div>
-          </div>
-        )}
-      </Dialog>
-
-      <Dialog
-        visible={!!deleteConfirm}
-        style={{ width: '26rem', borderRadius: '16px' }}
-        onHide={() => setDeleteConfirm(null)}
-        showHeader={false}
-      >
-        <div style={{ padding: '1.5rem 1rem 1rem 1rem', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-          <div style={{
-            width: '3.25rem',
-            height: '3.25rem',
-            borderRadius: '50%',
-            backgroundColor: '#fee2e2',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#dc2626',
-            fontSize: '1.5rem',
-            marginBottom: '1rem',
-            boxShadow: '0 4px 10px rgba(220, 38, 38, 0.15)'
-          }}>
-            <i className="pi pi-exclamation-triangle" />
-          </div>
-          
-          <h3 style={{
-            margin: '0 0 0.5rem 0',
-            fontSize: '1.2rem',
-            fontWeight: 700,
-            color: '#0f172a',
-            fontFamily: "'Outfit', sans-serif"
-          }}>
-            ¿Confirmar suspensión?
-          </h3>
-          
-          <p style={{
-            margin: '0 0 1.5rem 0',
-            fontSize: '0.9rem',
-            color: '#64748b',
-            lineHeight: '1.45',
-            fontFamily: "'Outfit', sans-serif"
-          }}>
-            ¿Está seguro que desea suspender a este administrador? Podrá restaurarlo o volver a activarlo en cualquier momento más adelante.
-          </p>
-          
-          <div style={{ display: 'flex', gap: '0.75rem', width: '100%' }}>
-            <Button
-              label="Cancelar"
-              onClick={() => setDeleteConfirm(null)}
-              className="p-button-text"
-              style={{ flex: 1, borderRadius: '8px' }}
-            />
-            <Button
-              label="Suspender"
-              onClick={confirmDelete}
+            <div
               style={{
-                flex: 1,
-                borderRadius: '8px',
-                backgroundColor: '#dc2626',
-                border: 'none',
-                color: '#ffffff',
-                fontWeight: 600,
-                fontSize: '0.9rem',
-                padding: '0.65rem 0',
-                cursor: 'pointer',
-                boxShadow: '0 4px 12px rgba(220, 38, 38, 0.2)'
+                display: "flex",
+                gap: "1rem",
+                justifyContent: "flex-end",
+                marginTop: "1rem",
               }}
-            />
-          </div>
-        </div>
-      </Dialog>
-
-      <Dialog
-        header="Crear Nuevo Administrador"
-        visible={creating}
-        style={{ width: '32rem' }}
-        onHide={() => setCreating(false)}
-      >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <div>
-            <label htmlFor="createName" style={{ display: 'block', marginBottom: '0.5rem' }}><strong>Nombre</strong></label>
-            <InputText
-              id="createName"
-              value={createForm.name || ''}
-              onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
-              className="w-full"
-              placeholder="Nombre completo"
-            />
-          </div>
-          <div>
-            <label htmlFor="createEmail" style={{ display: 'block', marginBottom: '0.5rem' }}><strong>Correo</strong></label>
-            <InputText
-              id="createEmail"
-              value={createForm.email || ''}
-              onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
-              className="w-full"
-              placeholder="correo@example.com"
-            />
-          </div>
-          <div>
-            <label htmlFor="createPassword" style={{ display: 'block', marginBottom: '0.5rem' }}><strong>Contraseña</strong></label>
-            <InputText
-              id="createPassword"
-              type="password"
-              value={createForm.password || ''}
-              onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
-              className="w-full"
-              placeholder="Mínimo 8 caracteres"
-            />
-          </div>
-
-          <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
-            <label style={{ display: 'block', marginBottom: '0.5rem' }}><strong>Permisos Especiales</strong></label>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              {PERMISSIONS_LIST.map((permission) => (
-                <div key={permission.id} style={{ display: 'flex', alignItems: 'center' }}>
-                  <Checkbox
-                    inputId={`cperm-${permission.id}`}
-                    name="permission"
-                    value={permission.id}
-                    onChange={(e) => onPermissionChange(e, createForm, setCreateForm)}
-                    checked={createForm.permissions?.includes(permission.id)}
-                  />
-                  <label htmlFor={`cperm-${permission.id}`} style={{ marginLeft: '0.5rem', fontSize: '0.9rem', cursor: 'pointer' }}>
-                    {permission.label}
-                  </label>
-                </div>
-              ))}
+            >
+              <Button
+                label="Cancelar"
+                onClick={() => setCreating(false)}
+                className="p-button-text"
+              />
+              <Button
+                label="Guardar"
+                onClick={handleCreateSave}
+                className="p-button-primary"
+              />
             </div>
           </div>
-
-          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
-            <Button label="Cancelar" onClick={() => setCreating(false)} className="p-button-text" />
-            <Button label="Guardar" onClick={handleCreateSave} className="p-button-primary" />
-          </div>
-        </div>
-      </Dialog>
-
-    </div>
+        </Dialog>
+      </div>
     </>
   );
 }

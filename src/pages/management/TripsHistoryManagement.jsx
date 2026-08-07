@@ -9,6 +9,8 @@ import { Toast } from "primereact/toast";
 import { ProgressSpinner } from "primereact/progressspinner";
 import { Dropdown } from "primereact/dropdown";
 import { fetchTrips } from "../../services/adminService";
+import StatCardPremium from "../../components/StatCardPremium";
+
 
 function formatDate(value) {
   if (!value) return "—";
@@ -34,6 +36,7 @@ export default function TripsHistoryManagement() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [page, setPage] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
+  const [globalStats, setGlobalStats] = useState({ terminados: 0, cancelados: 0 });
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -54,6 +57,12 @@ export default function TripsHistoryManagement() {
         const result = await fetchTrips(params);
         setTrips(result?.data || []);
         setTotalRecords(result?.total || 0);
+        if (result?.total_terminados !== undefined) {
+          setGlobalStats({
+            terminados: result.total_terminados || 0,
+            cancelados: result.total_cancelados || 0,
+          });
+        }
       } catch (err) {
         console.error("Error al cargar historial de viajes:", err);
         toast.current?.show({
@@ -180,7 +189,6 @@ export default function TripsHistoryManagement() {
   return (
     <>
       <Toast ref={toast} />
-
       <div className="management-section">
         <div className="management-header">
           <div className="management-header-left">
@@ -193,6 +201,12 @@ export default function TripsHistoryManagement() {
               </p>
             </div>
           </div>
+        </div>
+
+        <div className="dashboard-grid-premium" style={{ marginBottom: '1.25rem', marginTop: '1.25rem' }}>
+          <StatCardPremium title="Total Viajes" value={totalRecords} icon="pi pi-history" tone="purple" subtitle="Registrados históricamente" loading={loading} />
+          <StatCardPremium title="Terminados" value={globalStats.terminados} icon="pi pi-check-circle" tone="green" subtitle="En el sistema" loading={loading} />
+          <StatCardPremium title="Cancelados" value={globalStats.cancelados} icon="pi pi-times-circle" tone="red" subtitle="En el sistema" loading={loading} />
         </div>
 
         <Card className="management-table">
