@@ -64,21 +64,17 @@ export default function LoginPage() {
             </span>
           </div>
 
-          <div className="login-input-field">
-            <span className="p-input-icon-left w-full">
-              <i className="pi pi-lock" style={{ color: 'var(--text-secondary)' }} />
-              <Password
-                id="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                feedback={false}
-                toggleMask
-                placeholder="Contraseña"
-                inputClassName="w-full"
-                className="w-full"
-                autoComplete="current-password"
-              />
-            </span>
+          <div className="login-input-field p-fluid" style={{ position: 'relative' }}>
+            <i className="pi pi-lock" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', zIndex: 10, color: 'var(--text-secondary)' }} />
+            <Password
+              id="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              feedback={false}
+              toggleMask
+              placeholder="Contraseña"
+              autoComplete="current-password"
+            />
           </div>
 
           {error && (

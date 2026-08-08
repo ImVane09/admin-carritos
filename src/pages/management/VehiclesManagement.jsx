@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
+import ManagementPageHeader from "../../components/management/ManagementPageHeader";
+import { DetailModal, DetailField } from "../../components/ui/DetailModal";
 import { Button } from 'primereact/button';
 import { Card } from 'primereact/card';
 import { Column } from 'primereact/column';
@@ -8,6 +10,9 @@ import { InputText } from 'primereact/inputtext';
 import { Dropdown } from 'primereact/dropdown';
 import { Toast } from 'primereact/toast';
 import { InputSwitch } from 'primereact/inputswitch';
+import StatCardPremium from '../../components/StatCardPremium';
+import CustomDataTable from "../../components/ui/CustomDataTable";
+import ManagementActionButtons from "../../components/management/ManagementActionButtons";
 import { fetchVehicles, createVehicle, updateVehicle, deleteVehicle } from '../../services/adminService';
 
 const EMPTY_FORM = {
@@ -161,135 +166,118 @@ export default function VehiclesManagement() {
       <Toast ref={toast} />
 
       <div className="management-section">
-        <div className="management-header">
-          <div className="management-header-left">
-            <i className="pi pi-car" />
-            <div className="management-header-content">
-              <h2>Vehículos</h2>
-              <p>Gestión del inventario de carritos de golf</p>
-            </div>
-          </div>
-          <Button label="Nuevo Vehículo" icon="pi pi-plus" className="p-button-primary" onClick={openCreate} />
+        <ManagementPageHeader
+          title="Vehículos"
+          subtitle="Gestión del inventario de carritos de golf"
+          icon="pi pi-car"
+          buttonLabel="Nuevo Vehículo"
+          onButtonClick={openCreate}
+        />
+
+        <div className="dashboard-grid-premium">
+          <StatCardPremium
+            title="Total Vehículos"
+            value={totalRecords}
+            icon="pi pi-car"
+            tone="blue"
+            subtitle="Registrados en sistema"
+            loading={loading}
+          />
+          <StatCardPremium
+            title="Inactivos (Pág)"
+            value={vehicles.filter(v => v.status === 'inactive' && !v.deleted_at).length}
+            icon="pi pi-times-circle"
+            tone="red"
+            subtitle="Listados actualmente"
+            loading={loading}
+          />
+          <StatCardPremium
+            title="Mantenimiento (Pág)"
+            value={vehicles.filter(v => v.status === 'maintenance' && !v.deleted_at).length}
+            icon="pi pi-wrench"
+            tone="amber"
+            subtitle="Listados actualmente"
+            loading={loading}
+          />
         </div>
 
-        <Card className="management-table">
-          <div className="management-toolbar">
-            <h3>Lista de Vehículos ({totalRecords})</h3>
-            <div className="management-toolbar-filters">
-              <Dropdown 
-                value={statusFilter} 
-                options={[
-                  { label: 'Todos', value: null },
-                  { label: 'Activos', value: 'active' },
-                  { label: 'Inactivos', value: 'inactive' },
-                  { label: 'En mantenimiento', value: 'maintenance' },
-                  { label: 'Eliminados', value: 'deleted' }
-                ]} 
-                optionLabel="label"
-                optionValue="value"
-                onChange={(e) => { setStatusFilter(e.value); setPage(1); }} 
-                placeholder="Filtrar por estado" 
-              />
-              <span className="p-input-icon-left">
-                <i className="pi pi-search" />
-                <InputText 
-                  value={query} 
-                  onChange={(e) => setQuery(e.target.value)} 
-                  placeholder="Buscar por placas o modelo" 
-                />
-              </span>
-            </div>
-          </div>
+      <CustomDataTable
+        value={vehicles}
+        columns={[
+          { field: "plate", header: "Placas", body: (row) => <span style={{ fontWeight: 'bold' }}>{row.plate}</span> },
+          { field: "brand", header: "Marca" },
+          { field: "model", header: "Modelo" },
+          { field: "color", header: "Color" },
+          { field: "capacity", header: "Capacidad", body: (row) => `${row.capacity} pax` },
+          { header: "Estado", body: (row) => {
+              if (row.deleted_at) return <span className="status-badge status-danger">Eliminado</span>;
+              const statusLabels = {
+                'active': { label: 'Activo', class: 'status-activo' },
+                'inactive': { label: 'Inactivo', class: 'status-inactivo' },
+                'maintenance': { label: 'Mantenimiento', class: 'status-warning' }
+              };
+              const status = statusLabels[row.status] || statusLabels['active'];
+              return <span className={`status-badge ${status.class}`}>{status.label}</span>;
+            } 
+          },
+          { header: "Acciones", body: (row) => <ManagementActionButtons row={row} onEdit={openEdit} onDelete={setDeleteConfirm} onView={setSelected} /> }
+        ]}
+        loading={loading}
+        page={page}
+        totalRecords={totalRecords}
+        onPageChange={setPage}
+        title={`Lista de Vehículos (${totalRecords})`}
+        globalFilter={query}
+        setGlobalFilter={setQuery}
+        searchPlaceholder="Buscar por placas o modelo"
+        headerElements={
+          <Dropdown 
+            value={statusFilter} 
+            options={[
+              { label: 'Todos', value: null },
+              { label: 'Activos', value: 'active' },
+              { label: 'Inactivos', value: 'inactive' },
+              { label: 'En mantenimiento', value: 'maintenance' },
+              { label: 'Eliminados', value: 'deleted' }
+            ]} 
+            optionLabel="label"
+            optionValue="value"
+            onChange={(e) => { setStatusFilter(e.value); setPage(1); }} 
+            placeholder="Filtrar por estado" 
+          />
+        }
+      />
 
-          <DataTable 
-            value={vehicles} 
-            lazy
-            paginator 
-            first={(page - 1) * 10}
-            onPage={(e) => setPage(e.page + 1)}
-            totalRecords={totalRecords}
-            rows={10} 
-            loading={loading} 
-            responsiveLayout="scroll" 
-            stripedRows 
-            emptyMessage="No hay vehículos registrados"
-          >
-            <Column field="plate" header="Placas" sortable body={(row) => <span style={{ fontWeight: 'bold' }}>{row.plate}</span>} />
-            <Column field="brand" header="Marca" sortable />
-            <Column field="model" header="Modelo" sortable />
-            <Column field="color" header="Color" />
-            <Column field="capacity" header="Capacidad" sortable body={(row) => `${row.capacity} pax`} />
-            <Column
-              header="Estado"
-              body={(row) => {
-                if (row.deleted_at) {
-                  return <span className="status-badge status-inactivo" style={{ backgroundColor: '#e57373', color: '#fff' }}>Eliminado</span>;
-                }
-                const statusLabels = {
-                  'active': { label: 'Activo', class: 'status-activo' },
-                  'inactive': { label: 'Inactivo', class: 'status-inactivo' },
-                  'maintenance': { label: 'Mantenimiento', class: 'status-warning' }
-                };
-                const status = statusLabels[row.status] || statusLabels['active'];
-                return (
-                  <span className={`status-badge ${status.class}`}>
-                    {status.label}
-                  </span>
-                );
-              }}
-            />
-            <Column
-              header="Acciones"
-              body={(row) => (
-                <div className="action-buttons">
-                  <Button size="small" icon="pi pi-info-circle" text onClick={() => setSelected(row)} title="Ver Detalles" />
-                  {!row.deleted_at && (
-                    <>
-                      <Button 
-                        size="small" 
-                        icon="pi pi-user-edit" 
-                        text 
-                        className="p-button-warning" 
-                        onClick={() => openEdit(row)} 
-                        title="Editar" 
-                      />
-                      <Button 
-                        size="small" 
-                        icon="pi pi-trash" 
-                        text 
-                        className="p-button-danger" 
-                        onClick={() => setDeleteConfirm(row)} 
-                        title="Eliminar" 
-                      />
-                    </>
-                  )}
-                </div>
-              )}
-            />
-          </DataTable>
-        </Card>
-
-        <Dialog
+        <DetailModal
           header="Detalles del Vehículo"
           visible={!!selected}
-          style={{ width: '32rem' }}
           onHide={() => setSelected(null)}
+          icon="pi pi-car"
+          title={`${selected?.brand} ${selected?.model}`}
+          subtitle={`Placas: ${selected?.plate}`}
         >
           {selected && (
-            <div className="user-detail">
-              <p><strong>Placas:</strong> {selected.plate}</p>
-              <p><strong>Marca:</strong> {selected.brand}</p>
-              <p><strong>Modelo:</strong> {selected.model}</p>
-              <p><strong>Color:</strong> {selected.color}</p>
-              <p><strong>Capacidad:</strong> {selected.capacity} pasajeros</p>
-              <p><strong>Estado:</strong> {
-                form.status === 'active' ? 'Activo' :
-                form.status === 'inactive' ? 'Inactivo' :
-                'En Mantenimiento'
-              }</p>
-            </div>
+            <>
+              <DetailField icon="pi pi-palette" label="Color">
+                {selected.color}
+              </DetailField>
+              <DetailField icon="pi pi-users" label="Capacidad">
+                {selected.capacity} pasajeros
+              </DetailField>
+              <DetailField icon="pi pi-info-circle" label="Estado">
+                {selected.deleted_at ? (
+                  <span className="status-badge status-inactivo" style={{ backgroundColor: '#e57373', color: '#fff' }}>Eliminado</span>
+                ) : selected.status === 'active' ? (
+                  <span className="status-badge status-activo">Activo</span>
+                ) : selected.status === 'inactive' ? (
+                  <span className="status-badge status-inactivo">Inactivo</span>
+                ) : (
+                  <span className="status-badge status-warning">Mantenimiento</span>
+                )}
+              </DetailField>
+            </>
           )}
-        </Dialog>
+        </DetailModal>
 
         <Dialog
           header={creating ? 'Registrar Nuevo Vehículo' : 'Editar Vehículo'}

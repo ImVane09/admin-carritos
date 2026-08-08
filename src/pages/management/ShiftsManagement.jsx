@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
+import ManagementPageHeader from "../../components/management/ManagementPageHeader";
+import { DetailModal, DetailField } from "../../components/ui/DetailModal";
 import { Button } from 'primereact/button';
 import { Card } from 'primereact/card';
-import { Column } from 'primereact/column';
-import { DataTable } from 'primereact/datatable';
+import CustomDataTable from "../../components/ui/CustomDataTable";
 import { Dialog } from 'primereact/dialog';
 import { InputText } from 'primereact/inputtext';
 import { Toast } from 'primereact/toast';
@@ -19,11 +20,8 @@ export default function ShiftsManagement() {
   const [loading, setLoading] = useState(true);
   const [totalRecords, setTotalRecords] = useState(0);
   const [globalStats, setGlobalStats] = useState({ inactive: 0, deleted: 0 });
-  const [lazyParams, setLazyParams] = useState({
-    first: 0,
-    rows: 10,
-    page: 0,
-  });
+  const [page, setPage] = useState(1);
+  const rows = 10;
   
   // Modal states
   const [creating, setCreating] = useState(false);
@@ -36,7 +34,7 @@ export default function ShiftsManagement() {
   const loadShifts = async () => {
     setLoading(true);
     try {
-      const data = await fetchShifts({ page: lazyParams.page + 1, per_page: lazyParams.rows });
+      const data = await fetchShifts({ page: page, per_page: rows });
       setShifts(data.data || []);
       setTotalRecords(data.total || 0);
       if (data.total_inactivos !== undefined) {
@@ -57,7 +55,7 @@ export default function ShiftsManagement() {
 
   useEffect(() => {
     loadShifts();
-  }, [lazyParams]);
+  }, [page]);
 
   const openCreate = () => {
     setForm(EMPTY_FORM);
@@ -135,28 +133,10 @@ export default function ShiftsManagement() {
 
   const statusBody = (rowData) => {
     if (rowData.deleted_at) {
-      return (
-        <span style={{
-          padding: '0.25rem 0.5rem',
-          borderRadius: '4px',
-          backgroundColor: 'var(--danger-light)',
-          color: 'var(--danger-main)',
-          fontWeight: 'bold',
-          fontSize: '0.85rem'
-        }}>
-          Eliminado
-        </span>
-      );
+      return <span className="status-badge status-danger">Eliminado</span>;
     }
     return (
-      <span style={{
-        padding: '0.25rem 0.5rem',
-        borderRadius: '4px',
-        backgroundColor: rowData.is_active ? 'var(--success-light)' : 'var(--danger-light)',
-        color: rowData.is_active ? 'var(--success-main)' : 'var(--danger-main)',
-        fontWeight: 'bold',
-        fontSize: '0.85rem'
-      }}>
+      <span className={`status-badge ${rowData.is_active ? 'status-activo' : 'status-inactivo'}`}>
         {rowData.is_active ? 'Activo' : 'Inactivo'}
       </span>
     );
@@ -190,44 +170,39 @@ export default function ShiftsManagement() {
   );
 
   return (
-    <div className="management-page">
+    <div className="management-section">
       <Toast ref={toast} />
-      <div className="management-header" style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <h2>Gestión de Horarios</h2>
-          <p style={{ color: 'var(--text-secondary)' }}>Administra los turnos (Shifts) disponibles en el campus</p>
-        </div>
-        <Button label="Nuevo Horario" icon="pi pi-plus" onClick={openCreate} style={{ backgroundColor: 'var(--primary-main)', border: 'none' }} />
-      </div>
+      <ManagementPageHeader
+        title="Gestión de Horarios"
+        subtitle="Administra los turnos (Shifts) disponibles en el campus"
+        icon="pi pi-clock"
+        buttonLabel="Nuevo Horario"
+        onButtonClick={openCreate}
+      />
 
-      <div className="dashboard-grid-premium" style={{ marginBottom: '1.25rem', marginTop: '1.25rem' }}>
+      <div className="dashboard-grid-premium">
         <StatCardPremium title="Total Horarios" value={globalStats.total} icon="pi pi-clock" tone="amber" subtitle="Turnos definidos" loading={loading} />
         <StatCardPremium title="Inactivos" value={globalStats.inactive} icon="pi pi-clock" tone="amber" subtitle="En el sistema" loading={loading} />
         <StatCardPremium title="Eliminados" value={globalStats.deleted} icon="pi pi-trash" tone="red" subtitle="En el sistema" loading={loading} />
       </div>
 
-      <Card>
-        <DataTable
+        <CustomDataTable
           value={shifts}
           loading={loading}
-          emptyMessage="No se encontraron horarios."
-          responsiveLayout="scroll"
-          className="custom-datatable"
-          lazy
-          paginator
-          first={lazyParams.first}
-          rows={lazyParams.rows}
+          page={page}
           totalRecords={totalRecords}
-          onPage={(e) => setLazyParams(e)}
-        >
-          <Column field="id" header="ID" style={{ width: '80px' }} />
-          <Column field="name" header="Nombre del Turno" />
-          <Column field="start_time" header="Hora de Inicio" />
-          <Column field="end_time" header="Hora de Fin" body={(r) => r.end_time?.slice(0,5)} style={{ width: '20%' }} />
-          <Column header="Estado" body={statusBody} style={{ width: '15%' }} />
-          <Column header="Acciones" body={actionBody} style={{ width: '15%', textAlign: 'right' }} />
-        </DataTable>
-      </Card>
+          rows={rows}
+          onPageChange={setPage}
+          title="Horarios"
+          columns={[
+            { field: 'id', header: 'ID' },
+            { field: 'name', header: 'Nombre del Turno' },
+            { field: 'start_time', header: 'Hora de Inicio' },
+            { header: 'Hora de Fin', body: (r) => r.end_time?.slice(0,5) },
+            { header: 'Estado', body: statusBody },
+            { header: 'Acciones', body: actionBody }
+          ]}
+        />
 
       {/* Modal Crear/Editar */}
       <Dialog
@@ -274,26 +249,34 @@ export default function ShiftsManagement() {
       </Dialog>
 
       {/* Modal Ver Detalles */}
-      <Dialog
-        visible={viewing}
-        style={{ width: '450px' }}
+      <DetailModal
         header="Detalles del Horario"
-        modal
+        visible={viewing}
         onHide={closeForm}
-        footer={
-          <Button label="Cerrar" icon="pi pi-times" onClick={closeForm} className="p-button-text" />
-        }
+        icon="pi pi-clock"
+        title={selected?.name}
+        subtitle={`ID: #${selected?.id}`}
       >
         {selected && (
-          <div className="p-fluid">
-            <p><strong>ID:</strong> {selected.id}</p>
-            <p><strong>Nombre del Turno:</strong> {selected.name}</p>
-            <p><strong>Hora de Inicio:</strong> {selected.start_time}</p>
-            <p><strong>Hora de Fin:</strong> {selected.end_time}</p>
-            <p><strong>Estado:</strong> {selected.deleted_at ? 'Eliminado' : (selected.is_active ? 'Activo' : 'Inactivo')}</p>
-          </div>
+          <>
+            <DetailField icon="pi pi-hourglass" label="Hora de Inicio">
+              {selected.start_time}
+            </DetailField>
+            <DetailField icon="pi pi-hourglass-empty" label="Hora de Fin">
+              {selected.end_time}
+            </DetailField>
+            <DetailField icon="pi pi-info-circle" label="Estado">
+              {selected.deleted_at ? (
+                <span className="status-badge status-inactivo" style={{ backgroundColor: '#e57373', color: '#fff' }}>Eliminado</span>
+              ) : selected.is_active ? (
+                <span className="status-badge status-activo">Activo</span>
+              ) : (
+                <span className="status-badge status-inactivo">Inactivo</span>
+              )}
+            </DetailField>
+          </>
         )}
-      </Dialog>
+      </DetailModal>
 
       {/* Modal Confirmar Eliminación */}
       <Dialog

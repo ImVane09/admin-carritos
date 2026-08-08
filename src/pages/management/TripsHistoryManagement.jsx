@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import ManagementPageHeader from "../../components/management/ManagementPageHeader";
 import { Button } from "primereact/button";
 import { Card } from "primereact/card";
-import { Column } from "primereact/column";
-import { DataTable } from "primereact/datatable";
+import CustomDataTable from "../../components/ui/CustomDataTable";
 import { Dialog } from "primereact/dialog";
 import { InputText } from "primereact/inputtext";
 import { Toast } from "primereact/toast";
@@ -190,240 +190,213 @@ export default function TripsHistoryManagement() {
     <>
       <Toast ref={toast} />
       <div className="management-section">
-        <div className="management-header">
-          <div className="management-header-left">
-            <i className="pi pi-history" style={{ color: 'white' }} />
-            <div className="management-header-content">
-              <h2>Historial de Viajes</h2>
-              <p>
-                Auditoría de trayectos, conductores asignados, distancias y
-                opiniones de pasajeros
-              </p>
-            </div>
-          </div>
-        </div>
+        <ManagementPageHeader
+          title="Historial de Viajes"
+          subtitle="Auditoría de trayectos, conductores asignados, distancias y opiniones de pasajeros"
+          icon="pi pi-history"
+        />
 
-        <div className="dashboard-grid-premium" style={{ marginBottom: '1.25rem', marginTop: '1.25rem' }}>
+        <div className="dashboard-grid-premium">
           <StatCardPremium title="Total Viajes" value={totalRecords} icon="pi pi-history" tone="purple" subtitle="Registrados históricamente" loading={loading} />
           <StatCardPremium title="Terminados" value={globalStats.terminados} icon="pi pi-check-circle" tone="green" subtitle="En el sistema" loading={loading} />
           <StatCardPremium title="Cancelados" value={globalStats.cancelados} icon="pi pi-times-circle" tone="red" subtitle="En el sistema" loading={loading} />
         </div>
 
-        <Card className="management-table">
-          <div className="management-toolbar">
-            <h3>Lista de Viajes ({totalRecords})</h3>
-            <div className="management-toolbar-filters">
-              <Dropdown 
-                value={statusFilter} 
-                options={[
-                  { label: 'Todos', value: 'all' },
-                  { label: 'Solicitado', value: 'SOLICITADO' },
-                  { label: 'Aceptado', value: 'ACEPTADO' },
-                  { label: 'Terminado', value: 'TERMINADO' },
-                  { label: 'En curso', value: 'INICIADO' },
-                  { label: 'Cancelado', value: 'CANCELADO' }
-                ]} 
-                onChange={(e) => { setStatusFilter(e.value); setPage(1); }} 
-                placeholder="Filtrar por estado" 
-              />
-              <span className="p-input-icon-left">
-                <i className="pi pi-search" />
-                <InputText
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Buscar por pasajero, conductor, estado..."
-                  style={{ width: "18rem" }}
-                />
-              </span>
-            </div>
-          </div>
-
-          <DataTable
-            value={trips}
-            lazy
-            paginator
-            first={(page - 1) * 10}
-            rows={10}
-            totalRecords={totalRecords}
-            onPage={(e) => setPage(e.page + 1)}
-            responsiveLayout="scroll"
-            stripedRows
-            emptyMessage="No hay viajes registrados"
-            loading={loading}
-          >
-            <Column
-              field="id"
-              header="ID Viaje"
-              style={{ width: "7%" }}
+        <CustomDataTable
+          value={trips}
+          loading={loading}
+          page={page}
+          totalRecords={totalRecords}
+          rows={10}
+          onPageChange={setPage}
+          title="Historial de Viajes"
+          globalFilter={query}
+          setGlobalFilter={setQuery}
+          searchPlaceholder="Buscar por pasajero, conductor..."
+          headerElements={
+            <Dropdown 
+              value={statusFilter} 
+              options={[
+                { label: 'Todos', value: 'all' },
+                { label: 'Solicitado', value: 'SOLICITADO' },
+                { label: 'Aceptado', value: 'ACEPTADO' },
+                { label: 'Terminado', value: 'TERMINADO' },
+                { label: 'En curso', value: 'INICIADO' },
+                { label: 'Cancelado', value: 'CANCELADO' }
+              ]} 
+              onChange={(e) => { setStatusFilter(e.value); setPage(1); }} 
+              placeholder="Filtrar por estado" 
             />
-            <Column
-              header="Pasajeros"
-              body={(row) => (
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
-                  {row.passengers && row.passengers.length > 0 ? (
-                    row.passengers.map((p) => (
-                      <div
-                        key={p.id}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "0.5rem",
-                        }}
-                      >
+          }
+          columns={[
+              { field: "id", header: "ID Viaje" },
+              {
+                header: "Pasajeros",
+                body: (row) => (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+                    {row.passengers && row.passengers.length > 0 ? (
+                      row.passengers.map((p) => (
                         <div
+                          key={p.id}
                           style={{
-                            width: "1.5rem",
-                            height: "1.5rem",
-                            borderRadius: "50%",
-                            background: "#e8f5e9",
-                            color: "#2e7d32",
                             display: "flex",
                             alignItems: "center",
-                            justifyContent: "center",
-                            fontWeight: 700,
-                            fontSize: "0.75rem",
+                            gap: "0.5rem",
                           }}
                         >
-                          {(p.name || "P").slice(0, 1).toUpperCase()}
+                          <div
+                            style={{
+                              width: "1.5rem",
+                              height: "1.5rem",
+                              borderRadius: "50%",
+                              background: "#e8f5e9",
+                              color: "#2e7d32",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontWeight: 700,
+                              fontSize: "0.75rem",
+                            }}
+                          >
+                            {(p.name || "P").slice(0, 1).toUpperCase()}
+                          </div>
+                          <span style={{ fontWeight: 600, fontSize: "0.85rem" }}>
+                            {p.name || "Desconocido"}
+                          </span>
                         </div>
-                        <span style={{ fontWeight: 600, fontSize: "0.85rem" }}>
-                          {p.name || "Desconocido"}
-                        </span>
-                      </div>
-                    ))
-                  ) : (
-                    <span style={{ color: "#999", fontStyle: "italic", fontSize: "0.85rem" }}>
-                      Sin pasajeros
-                    </span>
-                  )}
-                </div>
-              )}
-            />
-            <Column
-              header="Conductor"
-              body={(row) =>
-                row.driver ? (
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.5rem",
-                    }}
-                  >
+                      ))
+                    ) : (
+                      <span style={{ color: "#999", fontStyle: "italic", fontSize: "0.85rem" }}>
+                        Sin pasajeros
+                      </span>
+                    )}
+                  </div>
+                )
+              },
+              {
+                header: "Conductor",
+                body: (row) =>
+                  row.driver ? (
                     <div
                       style={{
-                        width: "1.85rem",
-                        height: "1.85rem",
-                        borderRadius: "50%",
-                        background: "#e3f2fd",
-                        color: "#1565c0",
                         display: "flex",
                         alignItems: "center",
-                        justifyContent: "center",
-                        fontWeight: 700,
-                        fontSize: "0.85rem",
+                        gap: "0.5rem",
                       }}
                     >
-                      {row.driver.name.slice(0, 1).toUpperCase()}
+                      <div
+                        style={{
+                          width: "1.85rem",
+                          height: "1.85rem",
+                          borderRadius: "50%",
+                          background: "#e3f2fd",
+                          color: "#1565c0",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontWeight: 700,
+                          fontSize: "0.85rem",
+                        }}
+                      >
+                        {row.driver.name.slice(0, 1).toUpperCase()}
+                      </div>
+                      <span style={{ fontWeight: 600 }}>{row.driver.name}</span>
                     </div>
-                    <span style={{ fontWeight: 600 }}>{row.driver.name}</span>
-                  </div>
-                ) : (
-                  <span style={{ color: "#999", fontStyle: "italic" }}>
-                    Sin conductor asignado
+                  ) : (
+                    <span style={{ color: "#999", fontStyle: "italic" }}>
+                      Sin conductor asignado
+                    </span>
+                  )
+              },
+              {
+                header: "Origen",
+                body: (row) => (
+                  <span
+                    title={row.origin_address}
+                    style={{
+                      display: "inline-block",
+                      maxWidth: "180px",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {row.origin_address || "—"}
                   </span>
                 )
-              }
-            />
-            <Column
-              header="Origen"
-              body={(row) => (
-                <span
-                  title={row.origin_address}
-                  style={{
-                    display: "inline-block",
-                    maxWidth: "180px",
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                  }}
-                >
-                  {row.origin_address || "—"}
-                </span>
-              )}
-            />
-            <Column
-              header="Destino"
-              body={(row) => (
-                <span
-                  title={row.destination_address}
-                  style={{
-                    display: "inline-block",
-                    maxWidth: "180px",
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    fontWeight: 600,
-                  }}
-                >
-                  {row.destination_address || "—"}
-                </span>
-              )}
-            />
-            <Column
-              header="Distancia / Pasajeros"
-              body={(row) => (
-                <div style={{ fontSize: "0.9rem" }}>
-                  <div>
-                    <i
-                      className="pi pi-directions"
-                      style={{
-                        fontSize: "0.75rem",
-                        marginRight: "4px",
-                        color: "var(--primary-light)",
-                      }}
-                    />
-                    {row.distance
-                      ? `${Number(row.distance).toFixed(2)} km`
-                      : "—"}
-                  </div>
-                  <div
-                    style={{ color: "var(--text-secondary)", marginTop: "2px" }}
+              },
+              {
+                header: "Destino",
+                body: (row) => (
+                  <span
+                    title={row.destination_address}
+                    style={{
+                      display: "inline-block",
+                      maxWidth: "180px",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      fontWeight: 600,
+                    }}
                   >
-                    <i
-                      className="pi pi-users"
-                      style={{ fontSize: "0.75rem", marginRight: "4px" }}
-                    />
-                    {row.passengers_count || 1}{" "}
-                    {row.passengers_count === 1 ? "pasajero" : "pasajeros"}
+                    {row.destination_address || "—"}
+                  </span>
+                )
+              },
+              {
+                header: "Distancia / Pasajeros",
+                body: (row) => (
+                  <div style={{ fontSize: "0.9rem" }}>
+                    <div>
+                      <i
+                        className="pi pi-directions"
+                        style={{
+                          fontSize: "0.75rem",
+                          marginRight: "4px",
+                          color: "var(--primary-light)",
+                        }}
+                      />
+                      {row.distance
+                        ? `${Number(row.distance).toFixed(2)} km`
+                        : "—"}
+                    </div>
+                    <div
+                      style={{ color: "var(--text-secondary)", marginTop: "2px" }}
+                    >
+                      <i
+                        className="pi pi-users"
+                        style={{ fontSize: "0.75rem", marginRight: "4px" }}
+                      />
+                      {row.passengers_count || 1}{" "}
+                      {row.passengers_count === 1 ? "pasajero" : "pasajeros"}
+                    </div>
                   </div>
-                </div>
-              )}
-            />
-            <Column
-              header="Fecha Solicitud"
-              body={(row) => formatDate(row.created_at)}
-            />
-            <Column
-              header="Estado"
-              body={(row) => getStatusBadge(row.state_id, row.state?.state_name)}
-            />
-            <Column
-              header="Acciones"
-              body={(row) => (
-                <div className="action-buttons">
-                  <Button
-                    size="small"
-                    icon="pi pi-eye"
-                    text
-                    onClick={() => setSelected(row)}
-                    title="Ver detalles completos del viaje"
-                  />
-                </div>
-              )}
-            />
-          </DataTable>
-        </Card>
+                )
+              },
+              {
+                header: "Fecha Solicitud",
+                body: (row) => formatDate(row.created_at)
+              },
+              {
+                header: "Estado",
+                body: (row) => getStatusBadge(row.state_id, row.state?.state_name)
+              },
+              {
+                header: "Acciones",
+                body: (row) => (
+                  <div className="action-buttons">
+                    <Button
+                      size="small"
+                      icon="pi pi-eye"
+                      text
+                      onClick={() => setSelected(row)}
+                      title="Ver detalles completos del viaje"
+                    />
+                  </div>
+                )
+              }
+            ]}
+          />
 
         {/* Modal de Detalles del Viaje */}
         <Dialog

@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import ManagementPageHeader from "../../components/management/ManagementPageHeader";
+import { DetailModal, DetailField } from "../../components/ui/DetailModal";
 import { Button } from 'primereact/button';
 import { Card } from 'primereact/card';
 import { Column } from 'primereact/column';
@@ -12,6 +14,8 @@ import { ProgressSpinner } from 'primereact/progressspinner';
 import { InputSwitch } from 'primereact/inputswitch';
 import DestinationMapPicker from '../../components/DestinationMapPicker';
 import StatCardPremium from '../../components/StatCardPremium';
+import CustomDataTable from "../../components/ui/CustomDataTable";
+import ManagementActionButtons from "../../components/management/ManagementActionButtons";
 import { fetchDestinations, createDestination, updateDestination, deleteDestination } from '../../services/adminService';
 
 const DEFAULT_CENTER = [-0.9525, -80.7450];
@@ -99,7 +103,7 @@ export default function DestinationsManagement() {
       setLoading(true);
 
       try {
-        const result = await fetchDestinations({ per_page: 10, page, search: debouncedQuery, is_active: statusFilter });
+        const result = await fetchDestinations({ per_page: 10, page, search: debouncedQuery, status: statusFilter });
         const dataArray = result?.data || [];
         const normalized = dataArray.map(normalizeDestination).filter((destination) =>
           Number.isFinite(destination.latitude) && Number.isFinite(destination.longitude)
@@ -254,122 +258,85 @@ export default function DestinationsManagement() {
       <Toast ref={toast} />
 
       <div className="management-section">
-        <div className="management-header">
-          <div className="management-header-left">
-            <i className="pi pi-map-marker" style={{ color: 'white' }} />
-            <div className="management-header-content">
-              <h2>Destinos</h2>
-              <p>Gestión de puntos de destino en el mapa</p>
-            </div>
-          </div>
-          <Button label="Nuevo Destino" icon="pi pi-plus" style={{ backgroundColor: 'white', color: 'var(--primary-main)', border: 'none' }} onClick={openCreate} />
-        </div>
+        <ManagementPageHeader
+          title="Destinos"
+          subtitle="Gestión de puntos de destino en el mapa"
+          icon="pi pi-map-marker"
+          buttonLabel="Nuevo Destino"
+          onButtonClick={openCreate}
+        />
 
-        <div className="dashboard-grid-premium" style={{ marginBottom: '1.25rem', marginTop: '1.25rem' }}>
+        <div className="dashboard-grid-premium">
           <StatCardPremium title="Total Destinos" value={totalRecords} icon="pi pi-map-marker" tone="blue" subtitle="Registrados en sistema" loading={loading} />
           <StatCardPremium title="Inactivos" value={globalStats.inactive} icon="pi pi-compass" tone="amber" subtitle="En el sistema" loading={loading} />
           <StatCardPremium title="Eliminados" value={globalStats.deleted} icon="pi pi-trash" tone="red" subtitle="En el sistema" loading={loading} />
         </div>
 
-        <Card className="management-table">
-          <div className="management-toolbar">
-            <h3>Lista de Destinos ({totalRecords})</h3>
-            <div className="management-toolbar-filters">
-              <Dropdown 
-                value={statusFilter} 
-                options={[
-                  { label: 'Todos', value: null },
-                  { label: 'Activos', value: true },
-                  { label: 'Inactivos', value: false }
-                ]} 
-                optionLabel="label"
-                optionValue="value"
-                onChange={(e) => { setStatusFilter(e.value); setPage(1); }} 
-                placeholder="Filtrar por estado" 
-              />
-              <span className="p-input-icon-left">
-                <i className="pi pi-search" />
-                <InputText 
-                  value={query} 
-                  onChange={(e) => setQuery(e.target.value)} 
-                  placeholder="Buscar por nombre o descripción" 
-                />
-              </span>
-            </div>
-          </div>
+      <CustomDataTable
+        value={destinations}
+        columns={[
+          { field: "name", header: "Nombre" },
+          { header: "Descripción", body: (row) => row.description || 'Sin descripción' },
+          { header: "Latitud", body: (row) => formatCoordinate(row.latitude) },
+          { header: "Longitud", body: (row) => formatCoordinate(row.longitude) },
+          { header: "Predeterminado", body: (row) => <span style={{ color: row.is_default ? '#2e7d32' : '#6b7280', fontWeight: 600 }}>{row.is_default ? 'Sí' : 'No'}</span> },
+          { header: "Estado", body: (row) => {
+              if (row.deleted_at) return <span className="status-badge status-inactivo" style={{ backgroundColor: '#e57373', color: '#fff' }}>Eliminado</span>;
+              return <span className={`status-badge status-${row.is_active ? 'activo' : 'inactivo'}`}>{row.is_active ? 'Activo' : 'Inactivo'}</span>;
+            } 
+          },
+          { header: "Acciones", body: (row) => <ManagementActionButtons row={row} onEdit={openEdit} onDelete={handleDelete} onView={setSelected} /> }
+        ]}
+        loading={loading}
+        page={page}
+        totalRecords={totalRecords}
+        onPageChange={setPage}
+        title={`Lista de Destinos (${totalRecords})`}
+        globalFilter={query}
+        setGlobalFilter={setQuery}
+        searchPlaceholder="Buscar por nombre o descripción"
+        headerElements={
+          <Dropdown 
+            value={statusFilter} 
+            options={[
+              { label: 'Todos', value: null },
+              { label: 'Activos', value: 'active' },
+              { label: 'Inactivos', value: 'inactive' },
+              { label: 'Eliminados', value: 'deleted' }
+            ]} 
+            optionLabel="label"
+            optionValue="value"
+            onChange={(e) => { setStatusFilter(e.value); setPage(1); }} 
+            placeholder="Filtrar por estado" 
+          />
+        }
+      />
 
-          <DataTable 
-            value={destinations} 
-            lazy
-            paginator 
-            first={(page - 1) * 10}
-            rows={10} 
-            totalRecords={totalRecords}
-            onPage={(e) => setPage(e.page + 1)}
-            loading={loading} 
-            responsiveLayout="scroll" 
-            stripedRows 
-            emptyMessage="No hay destinos registrados"
-          >
-            <Column field="name" header="Nombre" sortable />
-            <Column field="description" header="Descripción" body={(row) => row.description || 'Sin descripción'} />
-            <Column header="Latitud" body={(row) => formatCoordinate(row.latitude)} />
-            <Column header="Longitud" body={(row) => formatCoordinate(row.longitude)} />
-            <Column
-              header="Predeterminado"
-              body={(row) => (
-                <span style={{ color: row.is_default ? '#2e7d32' : '#6b7280', fontWeight: 600 }}>
-                  {row.is_default ? 'Sí' : 'No'}
-                </span>
-              )}
-            />
-            <Column
-              header="Estado"
-              body={(row) => {
-                if (row.deleted_at) {
-                  return <span className="status-badge status-inactivo" style={{ backgroundColor: '#e57373', color: '#fff' }}>Eliminado</span>;
-                }
-                return (
-                  <span className={`status-badge status-${row.is_active ? 'activo' : 'inactivo'}`}>
-                    {row.is_active ? 'Activo' : 'Inactivo'}
-                  </span>
-                );
-              }}
-            />
-            <Column
-              header="Acciones"
-              body={(row) => (
-                <div className="action-buttons">
-                  <Button size="small" icon="pi pi-eye" text onClick={() => setSelected(row)} title="Ver" />
-                  {!row.deleted_at && (
-                    <>
-                      <Button size="small" icon="pi pi-pencil" text className="p-button-warning" onClick={() => openEdit(row)} title="Editar" />
-                      <Button size="small" icon="pi pi-trash" text className="p-button-danger" onClick={() => handleDelete(row)} title="Eliminar" />
-                    </>
-                  )}
-                </div>
-              )}
-            />
-          </DataTable>
-        </Card>
-
-        <Dialog
+        <DetailModal
           header="Detalles del Destino"
           visible={!!selected}
-          style={{ width: '32rem' }}
           onHide={() => setSelected(null)}
+          icon="pi pi-map-marker"
+          title={selected?.name}
+          subtitle={selected?.description || 'Sin descripción'}
         >
           {selected && (
-            <div className="user-detail">
-              <p><strong>Nombre:</strong> {selected.name}</p>
-              <p><strong>Descripción:</strong> {selected.description || 'No registrada'}</p>
-              <p><strong>Dirección:</strong> {selected.address || 'No registrada'}</p>
-              <p><strong>Latitud:</strong> {formatCoordinate(selected.latitude)}</p>
-              <p><strong>Longitud:</strong> {formatCoordinate(selected.longitude)}</p>
-              <p><strong>Predeterminado:</strong> {selected.is_default ? 'Sí' : 'No'}</p>
-            </div>
+            <>
+              <DetailField icon="pi pi-directions" label="Dirección">
+                {selected.address || 'No registrada'}
+              </DetailField>
+              <DetailField icon="pi pi-compass" label="Latitud">
+                {formatCoordinate(selected.latitude)}
+              </DetailField>
+              <DetailField icon="pi pi-compass" label="Longitud">
+                {formatCoordinate(selected.longitude)}
+              </DetailField>
+              <DetailField icon="pi pi-star" label="Predeterminado">
+                {selected.is_default ? 'Sí' : 'No'}
+              </DetailField>
+            </>
           )}
-        </Dialog>
+        </DetailModal>
 
         <Dialog
           header={creating ? 'Crear Nuevo Destino' : 'Editar Destino'}

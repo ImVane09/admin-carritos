@@ -237,8 +237,18 @@
 }
 
 .status-inactivo {
+  background-color: var(--ink-200, #e2e8f0);
+  color: var(--ink-700, #475569);
+}
+
+.status-warning {
   background-color: var(--warning-light);
   color: var(--warning);
+}
+
+.status-danger {
+  background-color: var(--danger-light, #fee2e2);
+  color: var(--danger-main, #ef4444);
 }
 
 .status-pendiente {

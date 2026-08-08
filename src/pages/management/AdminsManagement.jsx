@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
+import ManagementPageHeader from "../../components/management/ManagementPageHeader";
+import { DetailModal, DetailField } from "../../components/ui/DetailModal";
 import { Button } from "primereact/button";
 import { Card } from "primereact/card";
 import { Column } from "primereact/column";
-import { DataTable } from "primereact/datatable";
 import { Dialog } from "primereact/dialog";
 import { InputText } from "primereact/inputtext";
 import { InputSwitch } from "primereact/inputswitch";
@@ -18,8 +19,9 @@ import {
   restoreUser,
 } from "../../services/adminService";
 import { ProgressSpinner } from "primereact/progressspinner";
-import { useRef } from "react";
 import StatCardPremium from "../../components/StatCardPremium";
+import CustomDataTable from "../../components/ui/CustomDataTable";
+import ManagementActionButtons from "../../components/management/ManagementActionButtons";
 
 const PERMISSIONS_LIST = [
   { id: 1, name: "view_dashboard", label: "Ver Dashboard" },
@@ -356,26 +358,15 @@ export default function AdminsManagement() {
       <Toast ref={toast} />
 
       <div className="management-section">
-        <div className="management-header">
-          <div className="management-header-left">
-            <i className="pi pi-shield" />
-            <div className="management-header-content">
-              <h2>Administradores</h2>
-              <p>Gestión de cuentas administrativas del sistema</p>
-            </div>
-          </div>
-          <Button
-            label="Nuevo Admin"
-            icon="pi pi-plus"
-            className="p-button-primary"
-            onClick={handleCreate}
-          />
-        </div>
+        <ManagementPageHeader
+          title="Administradores"
+          subtitle="Gestión de cuentas administrativas del sistema"
+          icon="pi pi-shield"
+          buttonLabel="Nuevo Admin"
+          onButtonClick={handleCreate}
+        />
 
-        <div
-          className="dashboard-grid-premium"
-          style={{ marginBottom: "1.25rem", marginTop: "1.25rem" }}
-        >
+        <div className="dashboard-grid-premium">
           <StatCardPremium
             title="Total Administradores"
             value={globalStats.total}
@@ -402,286 +393,81 @@ export default function AdminsManagement() {
           />
         </div>
 
-        <Card className="management-table">
-          <div className="management-toolbar">
-            <h3>Lista de Administradores ({totalRecords})</h3>
-            <div className="management-toolbar-filters">
-              <Dropdown
-                value={statusFilter}
-                options={[
-                  { label: "Todos", value: "all" },
-                  { label: "Activos", value: "active" },
-                  { label: "Inactivos", value: "inactive" },
-                  { label: "Eliminados", value: "deleted" },
-                ]}
-                optionLabel="label"
-                optionValue="value"
-                onChange={(e) => {
-                  setStatusFilter(e.value);
-                  setPage(1);
-                }}
-                placeholder="Filtrar por estado"
-              />
-              <span className="p-input-icon-left">
-                <i className="pi pi-search" />
-                <InputText
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Buscar por nombre o correo"
-                />
-              </span>
-            </div>
-          </div>
-
-          <DataTable
-            value={users}
-            lazy
-            paginator
-            first={(page - 1) * 10}
-            rows={10}
-            totalRecords={totalRecords}
-            onPage={(e) => setPage(e.page + 1)}
-            loading={loading}
-            stripedRows
-            responsiveLayout="scroll"
-          >
-            <Column field="name" header="Nombre" sortable />
-            <Column field="email" header="Correo" sortable />
-            <Column header="Estado" body={statusBody} />
-            <Column
-              header="Acciones"
-              body={(row) => (
-                <div className="action-buttons">
-                  <Button
-                    size="small"
-                    icon="pi pi-eye"
-                    text
-                    onClick={() => setSelected(row)}
-                    title="Ver detalles"
-                  />
-                  {!row.deleted_at && (
-                    <>
-                      <Button
-                        size="small"
-                        icon="pi pi-pencil"
-                        text
-                        className="p-button-warning"
-                        onClick={() => handleEdit(row)}
-                        title="Editar"
-                      />
-                      <Button
-                        size="small"
-                        icon="pi pi-trash"
-                        text
-                        className="p-button-danger"
-                        onClick={() => handleDelete(row)}
-                        title="Eliminar"
-                      />
-                    </>
-                  )}
-                </div>
-              )}
+        <CustomDataTable
+          value={users}
+          columns={[
+            { field: "name", header: "Nombre" },
+            { field: "email", header: "Correo" },
+            { header: "Estado", body: statusBody },
+            { header: "Acciones", body: (row) => <ManagementActionButtons row={row} onEdit={handleEdit} onDelete={handleDelete} onView={setSelected} /> }
+          ]}
+          loading={loading}
+          page={page}
+          totalRecords={totalRecords}
+          onPageChange={setPage}
+          title={`Lista de Administradores (${totalRecords})`}
+          globalFilter={query}
+          setGlobalFilter={setQuery}
+          searchPlaceholder="Buscar por nombre o correo"
+          headerElements={
+            <Dropdown
+              value={statusFilter}
+              options={[
+                { label: "Todos", value: "all" },
+                { label: "Activos", value: "active" },
+                { label: "Inactivos", value: "inactive" },
+                { label: "Eliminados", value: "deleted" },
+              ]}
+              optionLabel="label"
+              optionValue="value"
+              onChange={(e) => {
+                setStatusFilter(e.value);
+                setPage(1);
+              }}
+              placeholder="Filtrar por estado"
             />
-          </DataTable>
-        </Card>
+          }
+        />
 
-        <Dialog
+        <DetailModal
           header="Detalles del Administrador"
           visible={!!selected}
-          style={{ width: "30rem" }}
           onHide={() => setSelected(null)}
-          dismissableMask
+          icon={selected?.name?.slice(0, 1).toUpperCase()}
+          title={selected?.name}
+          subtitle={`ID de Administrador: #${selected?.id}`}
         >
           {selected && (
-            <div className="user-detail-card" style={{ padding: "0.5rem 0" }}>
-              <div style={{ textAlign: "center", marginBottom: "1.5rem" }}>
-                <div
-                  style={{
-                    width: "64px",
-                    height: "64px",
-                    borderRadius: "50%",
-                    backgroundColor: "var(--brand-700)",
-                    color: "white",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: "1.5rem",
-                    fontWeight: "bold",
-                    margin: "0 auto 0.5rem auto",
-                    boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
-                  }}
-                >
-                  {selected.name?.slice(0, 1).toUpperCase()}
-                </div>
-                <h3
-                  style={{
-                    margin: "0.3rem 0",
-                    color: "var(--brand-900)",
-                    fontSize: "1.35rem",
-                    fontWeight: "600",
-                  }}
-                >
-                  {selected.name}
-                </h3>
-                <p
-                  style={{
-                    color: "var(--ink-500)",
-                    fontSize: "0.85rem",
-                    margin: 0,
-                  }}
-                >
-                  ID de Administrador: #{selected.id}
-                </p>
-              </div>
-
-              <div
-                style={{
-                  display: "grid",
-                  gap: "1rem",
-                  borderTop: "1px solid var(--border)",
-                  paddingTop: "1.2rem",
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                  }}
-                >
-                  <span
-                    style={{
-                      color: "var(--ink-500)",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.5rem",
-                    }}
-                  >
-                    <i
-                      className="pi pi-envelope"
-                      style={{ color: "var(--brand-500)" }}
-                    />{" "}
-                    Correo Electrónico:
+            <>
+              <DetailField icon="pi pi-envelope" label="Correo Electrónico">
+                {selected.email}
+              </DetailField>
+              <DetailField icon="pi pi-shield" label="Rol">
+                <span className="role-badge role-admin" style={{ margin: 0 }}>
+                  <i className="pi pi-shield" style={{ marginRight: "0.25rem" }} /> Administrador
+                </span>
+              </DetailField>
+              <DetailField icon="pi pi-check-circle" label="Estado de cuenta">
+                {selected.deleted_at ? (
+                  <span className="status-badge status-inactivo" style={{ backgroundColor: "#e57373", color: "#fff" }}>
+                    Eliminado
                   </span>
-                  <strong
-                    style={{
-                      color: "var(--ink-900)",
-                      wordBreak: "break-all",
-                      marginLeft: "1rem",
-                      textAlign: "right",
-                    }}
-                  >
-                    {selected.email}
-                  </strong>
-                </div>
-
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                  }}
-                >
-                  <span
-                    style={{
-                      color: "var(--ink-500)",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.5rem",
-                    }}
-                  >
-                    <i
-                      className="pi pi-shield"
-                      style={{ color: "var(--brand-500)" }}
-                    />{" "}
-                    Rol:
-                  </span>
-                  <span className="role-badge role-admin" style={{ margin: 0 }}>
-                    <i
-                      className="pi pi-shield"
-                      style={{ marginRight: "0.25rem" }}
-                    />{" "}
-                    Administrador
-                  </span>
-                </div>
-
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                  }}
-                >
-                  <span
-                    style={{
-                      color: "var(--ink-500)",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.5rem",
-                    }}
-                  >
-                    <i
-                      className="pi pi-check-circle"
-                      style={{ color: "var(--brand-500)" }}
-                    />{" "}
-                    Estado de cuenta:
-                  </span>
-                  <span
-                    className={`status-badge status-${selected.is_active ? "activo" : "inactivo"}`}
-                    style={{ margin: 0 }}
-                  >
-                    {selected.is_active ? "Activo" : "Inactivo"}
-                  </span>
-                </div>
-
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                  }}
-                >
-                  <span
-                    style={{
-                      color: "var(--ink-500)",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.5rem",
-                    }}
-                  >
-                    <i
-                      className="pi pi-calendar"
-                      style={{ color: "var(--brand-500)" }}
-                    />{" "}
-                    Fecha de Registro:
-                  </span>
-                  <strong style={{ color: "var(--ink-900)" }}>
-                    {new Date(selected.created_at).toLocaleDateString("es-ES", {
-                      dateStyle: "medium",
-                    })}
-                  </strong>
-                </div>
-              </div>
-
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "flex-end",
-                  marginTop: "2rem",
-                  borderTop: "1px solid var(--border)",
-                  paddingTop: "1rem",
-                }}
-              >
-                <Button
-                  label="Cancelar"
-                  onClick={() => setSelected(null)}
-                  className="p-button-text"
-                  style={{ borderRadius: "8px" }}
-                />
-              </div>
-            </div>
+                ) : selected.is_active ? (
+                  <span className="status-badge status-activo">Activo</span>
+                ) : (
+                  <span className="status-badge status-inactivo">Inactivo</span>
+                )}
+              </DetailField>
+              <DetailField icon="pi pi-calendar" label="Fecha de Registro">
+                {new Date(selected.created_at).toLocaleDateString("es-ES", {
+                  day: "numeric",
+                  month: "short",
+                  year: "numeric",
+                })}
+              </DetailField>
+            </>
           )}
-        </Dialog>
+        </DetailModal>
 
         <Dialog
           header="Editar Administrador"

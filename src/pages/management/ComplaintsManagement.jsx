@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { Card } from 'primereact/card';
-import { DataTable } from 'primereact/datatable';
-import { Column } from 'primereact/column';
+import CustomDataTable from "../../components/ui/CustomDataTable";
+import ManagementPageHeader from "../../components/management/ManagementPageHeader";
 import { Button } from 'primereact/button';
 import { Dropdown } from 'primereact/dropdown';
 import { Toast } from 'primereact/toast';
@@ -16,20 +16,17 @@ export default function ComplaintsManagement() {
   const [statusFilter, setStatusFilter] = useState(null);
   const [totalRecords, setTotalRecords] = useState(0);
   const [globalStats, setGlobalStats] = useState({ pending: 0, resolved: 0, dismissed: 0 });
-  const [lazyParams, setLazyParams] = useState({
-    first: 0,
-    rows: 10,
-    page: 0,
-  });
+  const [page, setPage] = useState(1);
+  const rows = 10;
 
   useEffect(() => {
     loadComplaints();
-  }, [lazyParams, statusFilter]);
+  }, [page, statusFilter]);
 
   const loadComplaints = async () => {
     setLoading(true);
     try {
-      const result = await fetchComplaints({ page: lazyParams.page + 1, per_page: lazyParams.rows, status: statusFilter });
+      const result = await fetchComplaints({ page, per_page: rows, status: statusFilter });
       
       setComplaints(result.data || []);
       setTotalRecords(result.total || 0);
@@ -112,64 +109,53 @@ export default function ComplaintsManagement() {
     <div className="management-section">
       <Toast ref={toast} />
       
-      <div className="management-header">
-        <div className="management-header-left">
-          <i className="pi pi-exclamation-circle" />
-          <div className="management-header-content">
-            <h2>Quejas de Usuarios</h2>
-            <p>Gestión de quejas y reclamos de pasajeros</p>
-          </div>
-        </div>
-      </div>
+      <ManagementPageHeader
+        title="Quejas de Usuarios"
+        subtitle="Gestión de quejas y reclamos de pasajeros"
+        icon="pi pi-exclamation-circle"
+      />
 
-      <div className="dashboard-grid-premium" style={{ marginBottom: '1.25rem', marginTop: '1.25rem' }}>
+      <div className="dashboard-grid-premium">
         <StatCardPremium title="Total Quejas" value={totalRecords} icon="pi pi-exclamation-circle" tone="red" subtitle="Registradas en el sistema" loading={loading} />
         <StatCardPremium title="Pendientes" value={globalStats.pending} icon="pi pi-clock" tone="amber" subtitle="A la espera de revisión" loading={loading} />
         <StatCardPremium title="Resueltas" value={globalStats.resolved} icon="pi pi-check" tone="green" subtitle="Quejas solucionadas" loading={loading} />
       </div>
 
-      <Card className="management-table">
-        <div className="management-toolbar">
-          <h3>Lista de Quejas</h3>
-          <div className="management-toolbar-filters">
-            <Dropdown 
-              value={statusFilter} 
-              options={[
-                { label: 'Todas', value: null },
-                { label: 'Pendientes', value: 'pending' },
-                { label: 'Resueltas', value: 'resolved' },
-                { label: 'Desestimadas', value: 'dismissed' }
-              ]} 
-              optionLabel="label"
-              optionValue="value"
-              onChange={(e) => setStatusFilter(e.value)} 
-              placeholder="Filtrar por estado" 
-            />
-          </div>
-        </div>
-
-        <DataTable
+        <CustomDataTable
           value={complaints}
+          columns={[
+            { field: 'id', header: 'ID' },
+            { field: 'created_at', header: 'Fecha', body: dateBodyTemplate },
+            { header: 'Pasajero', body: userBodyTemplate },
+            { field: 'subject', header: 'Asunto' },
+            { field: 'description', header: 'Descripción' },
+            { field: 'trip_id', header: 'Viaje ID' },
+            { header: 'Estado', body: statusBodyTemplate },
+          ]}
           loading={loading}
-          paginator
-          lazy
-          first={lazyParams.first}
-          rows={lazyParams.rows}
+          page={page}
           totalRecords={totalRecords}
-          onPage={(e) => setLazyParams(e)}
-          stripedRows
-          responsiveLayout="scroll"
-          emptyMessage="No hay quejas registradas."
-        >
-          <Column field="id" header="ID" style={{ width: '80px' }} sortable />
-          <Column header="Fecha" body={dateBodyTemplate} sortable field="created_at" />
-          <Column header="Pasajero" body={userBodyTemplate} />
-          <Column field="subject" header="Asunto" style={{ minWidth: '150px' }} />
-          <Column field="description" header="Descripción" style={{ minWidth: '300px' }} />
-          <Column field="trip_id" header="Viaje ID" />
-          <Column header="Estado" body={statusBodyTemplate} style={{ minWidth: '150px' }} />
-        </DataTable>
-      </Card>
+          rows={rows}
+          onPageChange={setPage}
+          title="Lista de Quejas"
+          headerElements={
+            <div className="management-toolbar-filters">
+              <Dropdown 
+                value={statusFilter} 
+                options={[
+                  { label: 'Todas', value: null },
+                  { label: 'Pendientes', value: 'pending' },
+                  { label: 'Resueltas', value: 'resolved' },
+                  { label: 'Desestimadas', value: 'dismissed' }
+                ]} 
+                optionLabel="label"
+                optionValue="value"
+                onChange={(e) => { setStatusFilter(e.value); setPage(1); }} 
+                placeholder="Filtrar por estado" 
+              />
+            </div>
+          }
+        />
     </div>
   );
 }

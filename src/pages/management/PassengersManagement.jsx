@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import ManagementPageHeader from "../../components/management/ManagementPageHeader";
 import { Button } from 'primereact/button';
 import { Card } from 'primereact/card';
 import { Column } from 'primereact/column';
@@ -12,6 +13,8 @@ import { fetchUsers, registerPassenger, updateUser, deleteUser, toggleUserStatus
 import { ProgressSpinner } from 'primereact/progressspinner';
 import { useRef } from 'react';
 import StatCardPremium from '../../components/StatCardPremium';
+import CustomDataTable from "../../components/ui/CustomDataTable";
+import ManagementActionButtons from "../../components/management/ManagementActionButtons";
 
 
 export default function PassengersManagement() {
@@ -229,18 +232,15 @@ export default function PassengersManagement() {
     <>
     <Toast ref={toast} />
     <div className="management-section">
-      <div className="management-header">
-        <div className="management-header-left">
-          <i className="pi pi-users" />
-          <div className="management-header-content">
-            <h2>Pasajeros</h2>
-            <p>Gestión de cuentas de pasajeros</p>
-          </div>
-        </div>
-        <Button label="Nuevo Pasajero" icon="pi pi-plus" className="p-button-primary" onClick={handleCreate} />
-      </div>
+      <ManagementPageHeader
+        title="Pasajeros"
+        subtitle="Gestión de cuentas de pasajeros"
+        icon="pi pi-users"
+        buttonLabel="Nuevo Pasajero"
+        onButtonClick={handleCreate}
+      />
 
-      <div className="dashboard-grid-premium" style={{ marginBottom: '1.25rem', marginTop: '1.25rem' }}>
+      <div className="dashboard-grid-premium">
         <StatCardPremium 
           title="Total Pasajeros" 
           value={globalStats.total} 
@@ -253,85 +253,38 @@ export default function PassengersManagement() {
         <StatCardPremium title="Eliminados" value={globalStats.deleted} icon="pi pi-trash" tone="red" subtitle="En el sistema" loading={loading} />
       </div>
 
-      <Card className="management-table">
-        <div className="management-toolbar">
-          <h3>Lista de Pasajeros ({totalRecords})</h3>
-          <div className="management-toolbar-filters">
-            <Dropdown 
-              value={statusFilter} 
-              options={[
-                { label: 'Todos', value: 'all' },
-                { label: 'Activos', value: 'active' },
-                { label: 'Inactivos', value: 'inactive' },
-                { label: 'Eliminados', value: 'deleted' }
-              ]} 
-              optionLabel="label"
-              optionValue="value"
-              onChange={(e) => { setStatusFilter(e.value); setPage(1); }} 
-              placeholder="Filtrar por estado" 
-            />
-            <span className="p-input-icon-left">
-              <i className="pi pi-search" />
-              <InputText 
-                value={query} 
-                onChange={(e) => setQuery(e.target.value)} 
-                placeholder="Buscar por nombre o correo" 
-              />
-            </span>
-          </div>
-        </div>
-
-        <DataTable 
-          value={users} 
-          lazy
-          paginator 
-          first={(page - 1) * 10}
-          rows={10} 
-          totalRecords={totalRecords}
-          onPage={(e) => setPage(e.page + 1)}
-          loading={loading} 
-          stripedRows 
-          responsiveLayout="scroll"
-        >
-          <Column field="name" header="Nombre" sortable />
-          <Column field="email" header="Correo" sortable />
-          <Column header="Estado" body={statusBody} />
-          <Column
-            header="Acciones"
-            body={(row) => (
-              <div className="action-buttons">
-                <Button 
-                  size="small" 
-                  icon="pi pi-eye" 
-                  text 
-                  onClick={() => setSelected(row)}
-                  title="Ver detalles"
-                />
-                {!row.deleted_at && (
-                  <>
-                    <Button 
-                      size="small" 
-                      icon="pi pi-pencil" 
-                      text 
-                      className="p-button-warning"
-                      onClick={() => handleEdit(row)}
-                      title="Editar"
-                    />
-                    <Button 
-                      size="small" 
-                      icon="pi pi-trash" 
-                      text 
-                      className="p-button-danger"
-                      onClick={() => handleDelete(row)}
-                      title="Eliminar"
-                    />
-                  </>
-                )}
-              </div>
-            )}
+      <CustomDataTable
+        value={users}
+        columns={[
+          { field: "name", header: "Nombre" },
+          { field: "email", header: "Correo" },
+          { header: "Estado", body: statusBody },
+          { header: "Acciones", body: (row) => <ManagementActionButtons row={row} onEdit={handleEdit} onDelete={handleDelete} onView={setSelected} /> }
+        ]}
+        loading={loading}
+        page={page}
+        totalRecords={totalRecords}
+        onPageChange={setPage}
+        title={`Lista de Pasajeros (${totalRecords})`}
+        globalFilter={query}
+        setGlobalFilter={setQuery}
+        searchPlaceholder="Buscar por nombre o correo"
+        headerElements={
+          <Dropdown 
+            value={statusFilter} 
+            options={[
+              { label: 'Todos', value: 'all' },
+              { label: 'Activos', value: 'active' },
+              { label: 'Inactivos', value: 'inactive' },
+              { label: 'Eliminados', value: 'deleted' }
+            ]} 
+            optionLabel="label"
+            optionValue="value"
+            onChange={(e) => { setStatusFilter(e.value); setPage(1); }} 
+            placeholder="Filtrar por estado" 
           />
-        </DataTable>
-      </Card>
+        }
+      />
 
       <Dialog
         header="Detalles del Pasajero"

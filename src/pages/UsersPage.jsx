@@ -2,8 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from 'primereact/button';
 import { Card } from 'primereact/card';
-import { Column } from 'primereact/column';
-import { DataTable } from 'primereact/datatable';
+import CustomDataTable from '../components/ui/CustomDataTable';
 import { Dialog } from 'primereact/dialog';
 import { InputText } from 'primereact/inputtext';
 import { Tag } from 'primereact/tag';
@@ -147,46 +146,26 @@ export default function UsersPage() {
         </div>
       </div>
 
-      <Card className="management-table">
-        <div className="users-toolbar">
-          <h2>Lista de Usuarios ({totalRecords})</h2>
-          <div className="management-toolbar-actions">
-            <span className="p-input-icon-left">
-              <i className="pi pi-search" />
-              <InputText
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Buscar por nombre, correo o rol..."
-                style={{ width: '18rem', borderRadius: '0.5rem' }}
-              />
-            </span>
-          </div>
-        </div>
-
-        <DataTable
+        <CustomDataTable
           value={users}
-          lazy
-          paginator
-          first={(page - 1) * 10}
-          rows={10}
-          totalRecords={totalRecords}
-          onPage={(e) => setPage(e.page + 1)}
-          stripedRows
-          responsiveLayout="scroll"
-          emptyMessage="No se encontraron usuarios"
           loading={loading}
-          rowsPerPageOptions={[5, 10, 20, 50]}
-          paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
-          currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} usuarios"
-        >
-          <Column field="name" header="Nombre" sortable style={{ fontWeight: 500 }} />
-          <Column field="email" header="Correo Electrónico" sortable />
-          <Column header="Rol" body={roleBodyTemplate} sortable sortField="role" />
-          <Column header="Estado" body={statusBodyTemplate} sortable sortField="is_active" />
-          <Column header="Fecha de Registro" body={dateBodyTemplate} sortable sortField="created_at" />
-          <Column header="Acciones" body={actionsBodyTemplate} style={{ width: '8rem', textAlign: 'center' }} />
-        </DataTable>
-      </Card>
+          page={page}
+          totalRecords={totalRecords}
+          rows={10}
+          onPageChange={setPage}
+          title={`Lista de Usuarios (${totalRecords})`}
+          globalFilter={searchQuery}
+          setGlobalFilter={setSearchQuery}
+          searchPlaceholder="Buscar por nombre, correo o rol..."
+          columns={[
+            { field: 'name', header: 'Nombre' },
+            { field: 'email', header: 'Correo Electrónico' },
+            { header: 'Rol', body: roleBodyTemplate },
+            { header: 'Estado', body: statusBodyTemplate },
+            { header: 'Fecha de Registro', body: dateBodyTemplate },
+            { header: 'Acciones', body: actionsBodyTemplate }
+          ]}
+        />
 
       <Dialog
         header="Detalles del Usuario"

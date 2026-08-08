@@ -347,3 +347,37 @@ export async function updateComplaintStatus(id, status) {
   const { data } = await api.patch(`/complaints/${id}/status`, { status });
   return data;
 }
+
+// --- Exportación de Reportes (CSV) ---
+
+async function downloadReport(url, filename) {
+  try {
+    const response = await api.get(url, { responseType: 'blob' });
+    const blob = new Blob([response.data], { type: 'text/csv' });
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(downloadUrl);
+  } catch (error) {
+    console.error('Error al descargar el reporte:', error);
+  }
+}
+
+export async function exportDriversReport(params) {
+  const qs = new URLSearchParams(params).toString();
+  await downloadReport(`/reports/export/drivers?${qs}`, 'reporte_conductores.csv');
+}
+
+export async function exportPassengersReport(params) {
+  const qs = new URLSearchParams(params).toString();
+  await downloadReport(`/reports/export/passengers?${qs}`, 'reporte_pasajeros.csv');
+}
+
+export async function exportRoutesReport(params) {
+  const qs = new URLSearchParams(params).toString();
+  await downloadReport(`/reports/export/routes?${qs}`, 'reporte_rutas.csv');
+}

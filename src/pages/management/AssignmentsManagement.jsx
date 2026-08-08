@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
+import ManagementPageHeader from "../../components/management/ManagementPageHeader";
+import { DetailModal, DetailField } from "../../components/ui/DetailModal";
 import { Button } from 'primereact/button';
 import { Card } from 'primereact/card';
 import { Column } from 'primereact/column';
-import { DataTable } from 'primereact/datatable';
 import { Dialog } from 'primereact/dialog';
+import CustomDataTable from "../../components/ui/CustomDataTable";
 import { Dropdown } from 'primereact/dropdown';
 import { Toast } from 'primereact/toast';
 import { fetchDriverProfiles, createDriverProfile, updateDriverProfile, deleteDriverProfile, fetchUsers, fetchVehicles, fetchShifts } from '../../services/adminService';
@@ -24,11 +26,8 @@ export default function AssignmentsManagement() {
   const [loading, setLoading] = useState(true);
   const [totalRecords, setTotalRecords] = useState(0);
   const [globalStats, setGlobalStats] = useState({ inactive: 0, deleted: 0 });
-  const [lazyParams, setLazyParams] = useState({
-    first: 0,
-    rows: 10,
-    page: 0,
-  });
+  const [page, setPage] = useState(1);
+  const rows = 10;
   
   // Modal states
   const [creating, setCreating] = useState(false);
@@ -42,7 +41,7 @@ export default function AssignmentsManagement() {
     setLoading(true);
     try {
       const [profilesData] = await Promise.all([
-        fetchDriverProfiles({ page: lazyParams.page + 1, per_page: lazyParams.rows })
+        fetchDriverProfiles({ page: page, per_page: rows })
       ]);
       
       setProfiles(profilesData?.data || []);
@@ -65,7 +64,7 @@ export default function AssignmentsManagement() {
 
   useEffect(() => {
     loadData();
-  }, [lazyParams]);
+  }, [page]);
 
   const loadDriversPage = async (pageToLoad = 1) => {
     if (driversState.loading) return;
@@ -287,9 +286,13 @@ export default function AssignmentsManagement() {
 
   const statusBody = (rowData) => {
     if (rowData.deleted_at) {
-      return <span style={{ color: 'red', fontWeight: 'bold' }}>Eliminado</span>;
+      return <span className="status-badge status-danger">Eliminado</span>;
     }
-    return rowData.is_active ? <span style={{ color: 'green' }}>Activo</span> : <span style={{ color: 'red' }}>Inactivo</span>;
+    return (
+      <span className={`status-badge ${rowData.is_active ? 'status-activo' : 'status-inactivo'}`}>
+        {rowData.is_active ? 'Activo' : 'Inactivo'}
+      </span>
+    );
   };
 
   const actionBody = (rowData) => (
@@ -320,44 +323,39 @@ export default function AssignmentsManagement() {
   );
 
   return (
-    <div className="management-page">
+    <div className="management-section">
       <Toast ref={toast} />
-      <div className="management-header" style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <h2>Asignaciones Activas</h2>
-          <p style={{ color: 'var(--text-secondary)' }}>Asigna un vehículo y un horario a cada conductor</p>
-        </div>
-        <Button label="Nueva Asignación" icon="pi pi-plus" onClick={openCreate} style={{ backgroundColor: 'var(--primary-main)', border: 'none' }} />
-      </div>
+      <ManagementPageHeader
+        title="Asignaciones Activas"
+        subtitle="Asigna un vehículo y un horario a cada conductor"
+        icon="pi pi-sitemap"
+        buttonLabel="Nueva Asignación"
+        onButtonClick={openCreate}
+      />
 
-      <div className="dashboard-grid-premium" style={{ marginBottom: '1.25rem', marginTop: '1.25rem' }}>
+      <div className="dashboard-grid-premium">
         <StatCardPremium title="Total Asignaciones" value={globalStats.total} icon="pi pi-link" tone="blue" subtitle="Registradas en sistema" loading={loading} />
         <StatCardPremium title="Inactivas" value={globalStats.inactive} icon="pi pi-pause" tone="amber" subtitle="En el sistema" loading={loading} />
         <StatCardPremium title="Eliminadas" value={globalStats.deleted} icon="pi pi-trash" tone="red" subtitle="En el sistema" loading={loading} />
       </div>
 
-      <Card>
-        <DataTable
+        <CustomDataTable
           value={profiles}
           loading={loading}
-          emptyMessage="No hay asignaciones registradas."
-          responsiveLayout="scroll"
-          className="custom-datatable"
-          lazy
-          paginator
-          first={lazyParams.first}
-          rows={lazyParams.rows}
+          page={page}
           totalRecords={totalRecords}
-          onPage={(e) => setLazyParams(e)}
-        >
-          <Column field="id" header="ID" style={{ width: '80px' }} />
-          <Column header="Conductor" body={driverBody} />
-          <Column header="Vehículo Asignado" body={vehicleBody} />
-          <Column header="Horario (Turno)" body={shiftBody} />
-          <Column header="Estado" body={statusBody} />
-          <Column body={actionBody} style={{ width: '120px', textAlign: 'right' }} />
-        </DataTable>
-      </Card>
+          rows={rows}
+          onPageChange={setPage}
+          title="Asignaciones"
+          columns={[
+            { field: 'id', header: 'ID' },
+            { header: 'Conductor', body: driverBody },
+            { header: 'Vehículo Asignado', body: vehicleBody },
+            { header: 'Horario (Turno)', body: shiftBody },
+            { header: 'Estado', body: statusBody },
+            { body: actionBody }
+          ]}
+        />
 
       {/* Modal Crear/Editar */}
       <Dialog
@@ -438,25 +436,34 @@ export default function AssignmentsManagement() {
       </Dialog>
 
       {/* Modal Ver Detalles */}
-      <Dialog
-        visible={viewing}
-        style={{ width: '450px' }}
+      <DetailModal
         header="Detalles de Asignación"
-        modal
+        visible={viewing}
         onHide={closeForm}
-        footer={
-          <Button label="Cerrar" icon="pi pi-times" onClick={closeForm} className="p-button-text" />
-        }
+        icon="pi pi-sitemap"
+        title={`Asignación #${selected?.id}`}
+        subtitle={selected?.user ? selected.user.name : 'Conductor desconocido'}
       >
         {selected && (
-          <div className="p-fluid">
-            <p><strong>Conductor:</strong> {selected.user ? selected.user.name : 'Desconocido'}</p>
-            <p><strong>Vehículo:</strong> {selected.vehicle ? `${selected.vehicle.brand} ${selected.vehicle.model} - ${selected.vehicle.plate}` : 'Desconocido'}</p>
-            <p><strong>Horario:</strong> {selected.shift ? `${selected.shift.name} (${selected.shift.start_time?.slice(0,5)} - ${selected.shift.end_time?.slice(0,5)})` : 'Desconocido'}</p>
-            <p><strong>Estado:</strong> {selected.deleted_at ? 'Eliminado' : (selected.is_active ? 'Activo' : 'Inactivo')}</p>
-          </div>
+          <>
+            <DetailField icon="pi pi-car" label="Vehículo">
+              {selected.vehicle ? `${selected.vehicle.brand} ${selected.vehicle.model} - ${selected.vehicle.plate}` : 'Desconocido'}
+            </DetailField>
+            <DetailField icon="pi pi-clock" label="Horario">
+              {selected.shift ? `${selected.shift.name} (${selected.shift.start_time?.slice(0,5)} - ${selected.shift.end_time?.slice(0,5)})` : 'Desconocido'}
+            </DetailField>
+            <DetailField icon="pi pi-info-circle" label="Estado">
+              {selected.deleted_at ? (
+                <span className="status-badge status-inactivo" style={{ backgroundColor: '#e57373', color: '#fff' }}>Eliminado</span>
+              ) : selected.is_active ? (
+                <span className="status-badge status-activo">Activo</span>
+              ) : (
+                <span className="status-badge status-inactivo">Inactivo</span>
+              )}
+            </DetailField>
+          </>
         )}
-      </Dialog>
+      </DetailModal>
 
       {/* Modal Confirmar Eliminación */}
       <Dialog
