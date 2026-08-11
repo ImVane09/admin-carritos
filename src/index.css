@@ -105,3 +105,16 @@ code {
   padding: 4px 8px;
   background: var(--code-bg);
 }
+
+/* Fix for MultiSelect chips to wrap and grow downwards */
+.multiselect-wrap .p-multiselect-label {
+  flex-wrap: wrap !important;
+  white-space: normal !important;
+  gap: 0.25rem;
+  padding-bottom: 0.25rem !important;
+}
+.multiselect-wrap .p-multiselect-token {
+  margin-right: 0.25rem !important;
+  margin-top: 0.25rem !important;
+  margin-bottom: 0 !important;
+}

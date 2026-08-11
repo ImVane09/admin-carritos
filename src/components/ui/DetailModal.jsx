@@ -94,7 +94,7 @@ export function DetailModal({
   );
 }
 
-export function DetailField({ icon, label, children }) {
+export function DetailField({ icon, label, children, value }) {
   return (
     <div
       style={{
@@ -111,10 +111,12 @@ export function DetailField({ icon, label, children }) {
           gap: "0.5rem",
         }}
       >
-        <i
-          className={icon}
-          style={{ color: "var(--brand-500)" }}
-        />{" "}
+        {icon && (
+          <i
+            className={icon}
+            style={{ color: "var(--brand-500)" }}
+          />
+        )}
         {label}:
       </span>
       <div
@@ -126,7 +128,7 @@ export function DetailField({ icon, label, children }) {
           fontWeight: "700"
         }}
       >
-        {children}
+        {children !== undefined ? children : value}
       </div>
     </div>
   );

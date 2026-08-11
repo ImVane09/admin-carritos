@@ -34,6 +34,7 @@ export default function DashboardPage() {
     destinations: 0,
   });
   const [drivers, setDrivers] = useState([]);
+  const [approvedDisconnects, setApprovedDisconnects] = useState(new Set());
   const [allDrivers, setAllDrivers] = useState([]);
   const [destinations, setDestinations] = useState([]);
   const [disconnectRequests, setDisconnectRequests] = useState([]);
@@ -97,6 +98,26 @@ export default function DashboardPage() {
 
         setStats(dashboardStats);
         setDrivers(driversList);
+        
+        // Populate initial disconnect requests
+        const pendingRequests = driversList
+          .filter(d => d.is_disconnect_pending)
+          .map(d => ({
+            driverId: d.id,
+            driverName: d.name,
+            reason: "Pendiente de aprobación (recargado)",
+            timestamp: new Date().toISOString()
+          }));
+        setDisconnectRequests(prev => {
+          // Merge avoiding duplicates
+          const newRequests = [...prev];
+          pendingRequests.forEach(req => {
+            if (!newRequests.find(r => r.driverId === req.driverId)) {
+              newRequests.push(req);
+            }
+          });
+          return newRequests;
+        });
         setAllDrivers(
           allDriversList.filter(
             (u) =>
@@ -107,6 +128,7 @@ export default function DashboardPage() {
         );
         setCancellations(dashboardStats.cancellations || []);
         setWaitTimes(dashboardStats.wait_times || []);
+        setApprovedDisconnects(new Set(dashboardStats.approved_disconnects || []));
 
         if (hourlyReport) {
           setHourlyData({
@@ -142,9 +164,9 @@ export default function DashboardPage() {
     if (token) {
       try {
         echoInstance = createEcho(token);
-        const channel = echoInstance.channel("drivers.live");
-
-        channel.listen(".DriverGlobalLocationUpdated", (event) => {
+        
+        // Función común para actualizar el estado del driver en vivo
+        const handleDriverLocationUpdate = (event, isInEvent = false) => {
           setDrivers((prevDrivers) => {
             const driverExists = prevDrivers.find(
               (d) => d.id === event.driver_id,
@@ -159,6 +181,7 @@ export default function DashboardPage() {
                       location_updated_at:
                         event.timestamp || new Date().toISOString(),
                       is_online: true,
+                      is_in_event: isInEvent
                     }
                   : d,
               );
@@ -167,18 +190,22 @@ export default function DashboardPage() {
                 ...prevDrivers,
                 {
                   id: event.driver_id,
-                  name: `Conductor ${event.driver_id}`,
+                  name: event.name || `Conductor ${event.driver_id}`,
                   latitude: parseFloat(event.latitude),
                   longitude: parseFloat(event.longitude),
                   location_updated_at:
                     event.timestamp || new Date().toISOString(),
                   is_online: true,
-                  vehicle: driverExists?.vehicle || null,
+                  vehicle: event.vehicle,
+                  is_in_event: isInEvent
                 },
               ];
             }
           });
-        });
+        };
+
+        const adminChannel = echoInstance.private("admin.live_tracking");
+        adminChannel.listen(".DriverGlobalLocationUpdated", (e) => handleDriverLocationUpdate(e, e.is_in_event || false));
 
         const statsChannel = echoInstance.channel("dashboard.stats");
         statsChannel.listen(".DashboardStatsUpdated", (event) => {
@@ -287,6 +314,7 @@ export default function DashboardPage() {
     const req = disconnectRequests[requestIndex];
     try {
       await approveDriverDisconnect(req.driverId);
+      setApprovedDisconnects((prev) => new Set([...prev, req.driverId]));
       setDisconnectRequests((prev) =>
         prev.filter((_, i) => i !== requestIndex),
       );
@@ -446,6 +474,7 @@ export default function DashboardPage() {
             activeDrivers={activeDrivers}
             offlineDrivers={offlineDrivers}
             disconnectRequests={disconnectRequests}
+            approvedDisconnects={approvedDisconnects}
             handleApproveDisconnect={handleApproveDisconnect}
             handleRejectDisconnect={handleRejectDisconnect}
             shifts={shifts}

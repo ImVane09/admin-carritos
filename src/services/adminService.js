@@ -36,6 +36,27 @@ export async function fetchDestinations(params = {}) {
   return data;
 }
 
+// --- CRUD de Eventos ---
+export async function fetchEvents(params = {}) {
+  const { data } = await api.get('/events', { params });
+  return data;
+}
+
+export async function createEvent(payload) {
+  const { data } = await api.post('/events', payload);
+  return data;
+}
+
+export async function updateEvent(id, payload) {
+  const { data } = await api.put(`/events/${id}`, payload);
+  return data;
+}
+
+export async function deleteEvent(id) {
+  const { data } = await api.delete(`/events/${id}`);
+  return data;
+}
+
 // --- CRUD de Usuarios (Conductores, Pasajeros, Admins) ---
 
 /**
@@ -290,50 +311,30 @@ export async function toggleShiftStatus(id) {
   return data;
 }
 
-// --- CRUD de Asignaciones (Events) ---
-export async function fetchEvents(params = {}) {
-  const { data } = await api.get('/events', { params });
+
+// --- CRUD de Asignaciones (Assignments) ---
+export async function fetchAssignments(params = {}) {
+  const { data } = await api.get('/assignments', { params });
   return data;
 }
 
-export async function createEvent(payload) {
-  const { data } = await api.post('/events', payload);
+export async function createAssignment(payload) {
+  const { data } = await api.post('/assignments', payload);
   return data;
 }
 
-export async function updateEvent(id, payload) {
-  const { data } = await api.put(`/events/${id}`, payload);
+export async function updateAssignment(id, payload) {
+  const { data } = await api.put(`/assignments/${id}`, payload);
   return data;
 }
 
-export async function deleteEvent(id) {
-  const { data } = await api.delete(`/events/${id}`);
+export async function deleteAssignment(id) {
+  const { data } = await api.delete(`/assignments/${id}`);
   return data;
 }
 
-// --- CRUD de Asignaciones (Driver Profiles) ---
-export async function fetchDriverProfiles(params = {}) {
-  const { data } = await api.get('/driver-profiles', { params });
-  return data;
-}
-
-export async function createDriverProfile(payload) {
-  const { data } = await api.post('/driver-profiles', payload);
-  return data;
-}
-
-export async function updateDriverProfile(id, payload) {
-  const { data } = await api.put(`/driver-profiles/${id}`, payload);
-  return data;
-}
-
-export async function deleteDriverProfile(id) {
-  const { data } = await api.delete(`/driver-profiles/${id}`);
-  return data;
-}
-
-export async function toggleDriverProfileStatus(id) {
-  const { data } = await api.patch(`/driver-profiles/${id}/toggle-status`);
+export async function toggleAssignmentStatus(id) {
+  const { data } = await api.patch(`/assignments/${id}/toggle-status`);
   return data;
 }
 

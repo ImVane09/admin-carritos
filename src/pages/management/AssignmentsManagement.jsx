@@ -8,7 +8,7 @@ import { Dialog } from 'primereact/dialog';
 import CustomDataTable from "../../components/ui/CustomDataTable";
 import { Dropdown } from 'primereact/dropdown';
 import { Toast } from 'primereact/toast';
-import { fetchDriverProfiles, createDriverProfile, updateDriverProfile, deleteDriverProfile, fetchUsers, fetchVehicles, fetchShifts } from '../../services/adminService';
+import { fetchAssignments, createAssignment, updateAssignment, deleteAssignment, fetchUsers, fetchVehicles, fetchShifts } from '../../services/adminService';
 import { InputSwitch } from 'primereact/inputswitch';
 import { Skeleton } from 'primereact/skeleton';
 import StatCardPremium from '../../components/StatCardPremium';
@@ -41,7 +41,7 @@ export default function AssignmentsManagement() {
     setLoading(true);
     try {
       const [profilesData] = await Promise.all([
-        fetchDriverProfiles({ page: page, per_page: rows })
+        fetchAssignments({ page: page, per_page: rows })
       ]);
       
       setProfiles(profilesData?.data || []);
@@ -232,14 +232,14 @@ export default function AssignmentsManagement() {
     setLoading(true);
     try {
       if (editing) {
-        await updateDriverProfile(form.id, {
+        await updateAssignment(form.id, {
           shift_id: form.shift_id,
           vehicle_id: form.vehicle_id,
           is_active: form.is_active
         });
         toast.current?.show({ severity: 'success', summary: 'Actualizado', detail: 'Asignación actualizada correctamente.' });
       } else {
-        await createDriverProfile(form);
+        await createAssignment(form);
         toast.current?.show({ severity: 'success', summary: 'Creado', detail: 'Asignación creada correctamente.' });
       }
       closeForm();
@@ -260,7 +260,7 @@ export default function AssignmentsManagement() {
     if (!deleteConfirm) return;
     setLoading(true);
     try {
-      await deleteDriverProfile(deleteConfirm.id);
+      await deleteAssignment(deleteConfirm.id);
       toast.current?.show({ severity: 'success', summary: 'Eliminada', detail: 'Asignación eliminada correctamente.' });
       setDeleteConfirm(null);
       loadData();

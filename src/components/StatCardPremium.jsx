@@ -21,7 +21,7 @@ export default function StatCardPremium({ title, value, icon, tone, subtitle, lo
             />
           </h2>
         ) : (
-          <h2>{value}</h2>
+          <h2>{value ?? 0}</h2>
         )}
         <p>
           <i

@@ -7,6 +7,7 @@ export default function DashboardSidePanel({
   activeDrivers,
   offlineDrivers,
   disconnectRequests,
+  approvedDisconnects,
   handleApproveDisconnect,
   handleRejectDisconnect,
   shifts,
@@ -120,6 +121,19 @@ export default function DashboardSidePanel({
                     <strong>
                       {driver.name || `Conductor #${driver.id}`}
                     </strong>
+                    {driver.is_in_event && (
+                      <span style={{ 
+                        marginLeft: '8px', 
+                        fontSize: '0.65rem', 
+                        padding: '2px 6px', 
+                        backgroundColor: 'var(--primary)', 
+                        color: 'white', 
+                        borderRadius: '4px',
+                        fontWeight: 'bold' 
+                      }}>
+                        EN EVENTO
+                      </span>
+                    )}
                     {driver.vehicle && (
                       <span
                         className="driver-subtext"
@@ -287,8 +301,8 @@ export default function DashboardSidePanel({
                   </div>
                 </div>
                 <Tag
-                  value="Offline"
-                  severity="secondary"
+                  value={approvedDisconnects?.has(driver.id) ? "Desconexión Aprobada" : "Offline"}
+                  severity={approvedDisconnects?.has(driver.id) ? "info" : "secondary"}
                   style={{
                     borderRadius: "0.5rem",
                     fontWeight: 700,

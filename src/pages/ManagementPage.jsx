@@ -113,6 +113,14 @@ export default function ManagementPage() {
       color: '#e91e63',
       path: '/management/assignments',
       count: 'Ver'
+    },
+    {
+      title: 'Eventos',
+      description: 'Gestionar eventos y asignar carritos especiales',
+      icon: 'pi pi-ticket',
+      color: '#673ab7',
+      path: '/management/events',
+      count: 'Ver'
     }
   ];
 

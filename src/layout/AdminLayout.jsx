@@ -3,7 +3,7 @@ import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { Avatar } from 'primereact/avatar';
 import { Button } from 'primereact/button';
 import { Toast } from 'primereact/toast';
-import { approveDriverDisconnect } from '../services/adminService';
+import { approveDriverDisconnect, rejectDriverDisconnect } from '../services/adminService';
 import { useAuth } from '../context/AuthContext';
 
 const menu = [
@@ -22,6 +22,7 @@ const menu = [
   { to: '/management/vehicles', label: 'Carritos', icon: 'pi pi-car', nested: true, permission: 'manage_vehicles' },
   { to: '/management/shifts', label: 'Horarios', icon: 'pi pi-clock', nested: true, permission: 'manage_users' },
   { to: '/management/assignments', label: 'Asignaciones', icon: 'pi pi-calendar-plus', nested: true, permission: 'manage_users' },
+  { to: '/management/events', label: 'Eventos', icon: 'pi pi-ticket', nested: true, permission: 'manage_users' },
   { to: '/management/complaints', label: 'Quejas', icon: 'pi pi-exclamation-circle', nested: true, permission: 'view_passenger_reports' },
   { to: '/management/trips', label: 'Historial de Viajes', icon: 'pi pi-history', nested: true, permission: 'view_history' },
 ];
@@ -48,6 +49,7 @@ export default function AdminLayout() {
             <p>Motivo: {data.reason}</p>
             <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
               <Button size="small" label="Aprobar" severity="success" onClick={() => handleApproveDisconnect(data.driverId)} />
+              <Button size="small" label="Rechazar" severity="danger" outlined onClick={() => handleRejectDisconnect(data.driverId)} />
             </div>
           </div>
         ),
@@ -70,6 +72,17 @@ export default function AdminLayout() {
     } catch (err) {
       console.error(err);
       toast.current?.show({ severity: 'error', summary: 'Error', detail: 'No se pudo aprobar la desconexión.', life: 3000 });
+    }
+  };
+
+  const handleRejectDisconnect = async (driverId) => {
+    try {
+      await rejectDriverDisconnect(driverId);
+      toast.current?.clear();
+      toast.current?.show({ severity: 'info', summary: 'Rechazado', detail: 'Desconexión rechazada.', life: 3000 });
+    } catch (err) {
+      console.error(err);
+      toast.current?.show({ severity: 'error', summary: 'Error', detail: 'No se pudo rechazar la desconexión.', life: 3000 });
     }
   };
 
