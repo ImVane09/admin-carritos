@@ -232,10 +232,11 @@ export default function DashboardPage() {
           setLastUpdate(new Date());
         });
 
-        channel.listen(".DriverOffline", (event) => {
-          setDrivers((prevDrivers) => {
-            return prevDrivers.map((d) =>
-              d.id === event.driver_id ? { ...d, is_online: false } : d,
+        const liveChannel = echoInstance.channel("drivers.live");
+        liveChannel.listen(".DriverOffline", (event) => {
+          setDrivers((previousDrivers) => {
+            return previousDrivers.map((driverItem) =>
+              driverItem.id === event.driver_id ? { ...driverItem, is_online: false } : driverItem,
             );
           });
         });

@@ -338,7 +338,7 @@ export default function DestinationsManagement() {
           )}
         </DetailModal>
 
-        <Dialog
+        <Dialog blockScroll
           header={creating ? 'Crear Nuevo Destino' : 'Editar Destino'}
           visible={creating || editing}
           style={{ width: '58rem' }}
@@ -443,14 +443,14 @@ export default function DestinationsManagement() {
               )}
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '0.5rem' }}>
-              <Button label="Cancelar" onClick={closeForm} className="p-button-text" />
-              <Button label={creating ? 'Crear' : 'Guardar'} onClick={handleSave} className="p-button-primary" />
-            </div>
+          </div>
+          <div className="premium-modal-footer">
+            <Button label="Cancelar" onClick={closeForm} className="p-button-text" />
+            <Button label={creating ? 'Crear' : 'Guardar'} onClick={handleSave} className="p-button-primary" />
           </div>
         </Dialog>
 
-        <Dialog
+        <Dialog blockScroll
           header="Confirmar Eliminación"
           visible={!!deleteConfirm}
           style={{ width: '32rem' }}

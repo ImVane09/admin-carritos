@@ -26,6 +26,11 @@ export async function rejectDriverDisconnect(id) {
   return data;
 }
 
+export async function fetchDisconnectRequests(params = {}) {
+  const { data } = await api.get('/admin/disconnect-requests', { params });
+  return data;
+}
+
 export async function fetchAllDrivers() {
   const { data } = await api.get('/users', { params: { role_name: 'conductor' } }); // Assuming your API supports this
   return data?.data || data || [];

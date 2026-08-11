@@ -125,6 +125,27 @@ body, button, input, select, textarea, .p-component, h1, h2, h3, h4, h5, h6, p, 
 .p-inputtext,
 .p-inputtextarea {
   border-color: var(--border-color) !important;
+  padding: 0.65rem 1rem; /* Un poco más grande para ser cómodos pero no gigantes */
+}
+
+/* Modales: Consistencia en el tamaño de los inputs */
+.p-dialog .p-inputtext:not(.p-dropdown-label),
+.p-dialog .p-inputtextarea,
+.p-dialog .p-calendar .p-inputtext,
+.p-dialog .p-multiselect .p-multiselect-label {
+  padding: 0.65rem 1rem !important;
+  font-size: 1rem !important;
+}
+
+.p-dialog .p-dropdown .p-dropdown-label {
+  padding: 0.65rem 1rem !important;
+  font-size: 1rem !important;
+}
+
+/* Modales: Consistencia en color de etiquetas */
+.p-dialog label {
+  color: var(--primary-dark) !important;
+  font-weight: 600 !important;
 }
 
 .p-inputtext:focus,
@@ -145,7 +166,7 @@ body, button, input, select, textarea, .p-component, h1, h2, h3, h4, h5, h6, p, 
   background: #ffffff !important;
   color: var(--primary-main) !important;
   border-bottom: 1px solid var(--border-light) !important;
-  padding: 1.5rem 2rem !important;
+  padding: 1.25rem 1.5rem 0.25rem 1.5rem !important; /* Reducido padding inferior para acercar al contenido */
 }
 
 .p-dialog .p-dialog-header .p-dialog-title {
@@ -174,7 +195,7 @@ body, button, input, select, textarea, .p-component, h1, h2, h3, h4, h5, h6, p, 
 }
 
 .p-dialog .p-dialog-content {
-  padding: 2rem !important;
+  padding: 0.5rem 1.5rem 1.5rem 1.5rem !important; /* Más padding inferior para dar respiro a los botones */
   background: #ffffff !important;
 }
 
@@ -185,6 +206,27 @@ body, button, input, select, textarea, .p-component, h1, h2, h3, h4, h5, h6, p, 
   display: flex !important;
   justify-content: flex-end !important;
   gap: 0.75rem !important;
+}
+
+/* Footer personalizado para modales donde los botones van en el body */
+.premium-modal-footer {
+  display: flex !important;
+  justify-content: flex-end !important;
+  gap: 1rem !important;
+  width: 100% !important;
+  margin-top: 0 !important;
+  padding-top: 0.75rem !important;
+  border-top: 1px solid var(--border-light) !important;
+}
+
+.premium-modal-footer .p-button-primary {
+  background-color: var(--info) !important;
+  border-color: var(--info) !important;
+}
+
+.premium-modal-footer .p-button-primary:hover {
+  background-color: #1976d2 !important;
+  border-color: #1976d2 !important;
 }
 
 /* Progressbar */

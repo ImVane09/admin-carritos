@@ -286,7 +286,7 @@ export default function PassengersManagement() {
         }
       />
 
-      <Dialog
+      <Dialog blockScroll
         header="Detalles del Pasajero"
         visible={!!selected}
         style={{ width: '30rem' }}
@@ -359,62 +359,80 @@ export default function PassengersManagement() {
         )}
       </Dialog>
 
-      <Dialog
+      <Dialog blockScroll
         header="Editar Pasajero"
         visible={!!editing}
         style={{ width: '32rem' }}
         onHide={() => setEditing(null)}
       >
         {editForm && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <div>
-              <label htmlFor="name" style={{ display: 'block', marginBottom: '0.5rem' }}><strong>Nombre</strong></label>
-              <InputText
-                id="name"
-                value={editForm.name || ''}
-                onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                className="w-full"
-              />
-            </div>
-            <div>
-              <label htmlFor="email" style={{ display: 'block', marginBottom: '0.5rem' }}><strong>Correo</strong></label>
-              <InputText
-                id="email"
-                value={editForm.email || ''}
-                onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                className="w-full"
-              />
-            </div>
+          <>
+            <div className="grid p-fluid">
+              <div className="col-12 mb-3">
+                <div className="flex flex-column gap-2">
+                  <label htmlFor="name" className="font-bold">
+                    Nombre
+                  </label>
+                  <InputText
+                    id="name"
+                    value={editForm.name || ''}
+                    onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                    className="w-full"
+                  />
+                </div>
+              </div>
+              <div className="col-12 mb-3">
+                <div className="flex flex-column gap-2">
+                  <label htmlFor="email" className="font-bold">
+                    Correo
+                  </label>
+                  <InputText
+                    id="email"
+                    value={editForm.email || ''}
+                    onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                    className="w-full"
+                  />
+                </div>
+              </div>
 
-            <div>
-              <label htmlFor="password" style={{ display: 'block', marginBottom: '0.5rem' }}><strong>Nueva Contraseña (Opcional)</strong></label>
-              <InputText
-                id="password"
-                type="password"
-                value={editForm.password || ''}
-                onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
-                className="w-full"
-                placeholder="Dejar vacío para no cambiar"
-              />
-            </div>
+              <div className="col-12 mb-3">
+                <div className="flex flex-column gap-2">
+                  <label htmlFor="password" className="font-bold">
+                    Nueva Contraseña (Opcional)
+                  </label>
+                  <InputText
+                    id="password"
+                    type="password"
+                    value={editForm.password || ''}
+                    onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
+                    className="w-full"
+                    placeholder="Dejar vacío para no cambiar"
+                  />
+                </div>
+              </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <label htmlFor="is_active"><strong>Activo</strong></label>
-              <InputSwitch
-                id="is_active"
-                checked={editForm.is_active || false}
-                onChange={(e) => setEditForm({ ...editForm, is_active: e.value })}
-              />
+              <div className="col-12 mb-3">
+                <div className="flex align-items-center justify-content-between">
+                  <label htmlFor="is_active" className="font-bold">
+                    Activo
+                  </label>
+                  <InputSwitch
+                    id="is_active"
+                    checked={editForm.is_active || false}
+                    onChange={(e) => setEditForm({ ...editForm, is_active: e.value })}
+                  />
+                </div>
+              </div>
             </div>
-            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
+            <div className="premium-modal-footer">
               <Button label="Cancelar" onClick={() => setEditing(null)} className="p-button-text" />
               <Button label="Guardar" onClick={handleSave} className="p-button-primary" />
             </div>
-          </div>
+          </>
         )}
       </Dialog>
 
-      <Dialog
+      <Dialog blockScroll
         visible={!!deleteConfirm}
         style={{ width: '26rem', borderRadius: '16px' }}
         onHide={() => setDeleteConfirm(null)}
@@ -484,57 +502,73 @@ export default function PassengersManagement() {
         </div>
       </Dialog>
 
-      <Dialog
+      <Dialog blockScroll
         header="Crear Nuevo Pasajero"
         visible={creating}
         style={{ width: '32rem' }}
         onHide={() => setCreating(false)}
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <div>
-            <label htmlFor="createName" style={{ display: 'block', marginBottom: '0.5rem' }}><strong>Nombre</strong></label>
-            <InputText
-              id="createName"
-              value={createForm.name || ''}
-              onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
-              className="w-full"
-              placeholder="Nombre completo"
-            />
+        <div className="grid p-fluid">
+          <div className="col-12 mb-3">
+            <div className="flex flex-column gap-2">
+              <label htmlFor="createName" className="font-bold">
+                Nombre
+              </label>
+              <InputText
+                id="createName"
+                value={createForm.name || ''}
+                onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
+                className="w-full"
+                placeholder="Nombre completo"
+              />
+            </div>
           </div>
-          <div>
-            <label htmlFor="createEmail" style={{ display: 'block', marginBottom: '0.5rem' }}><strong>Correo</strong></label>
-            <InputText
-              id="createEmail"
-              value={createForm.email || ''}
-              onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
-              className="w-full"
-              placeholder="correo@example.com"
-            />
+          <div className="col-12 mb-3">
+            <div className="flex flex-column gap-2">
+              <label htmlFor="createEmail" className="font-bold">
+                Correo
+              </label>
+              <InputText
+                id="createEmail"
+                value={createForm.email || ''}
+                onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
+                className="w-full"
+                placeholder="correo@example.com"
+              />
+            </div>
           </div>
-          <div>
-            <label htmlFor="createPassword" style={{ display: 'block', marginBottom: '0.5rem' }}><strong>Contraseña</strong></label>
-            <InputText
-              id="createPassword"
-              type="password"
-              value={createForm.password || ''}
-              onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
-              className="w-full"
-              placeholder="Mínimo 8 caracteres"
-            />
+          <div className="col-12 mb-3">
+            <div className="flex flex-column gap-2">
+              <label htmlFor="createPassword" className="font-bold">
+                Contraseña
+              </label>
+              <InputText
+                id="createPassword"
+                type="password"
+                value={createForm.password || ''}
+                onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
+                className="w-full"
+                placeholder="Mínimo 8 caracteres"
+              />
+            </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <label htmlFor="createActive"><strong>Activo</strong></label>
-            <InputSwitch
-              id="createActive"
-              checked={createForm.is_active || false}
-              onChange={(e) => setCreateForm({ ...createForm, is_active: e.value })}
-            />
+          <div className="col-12 mb-3">
+            <div className="flex align-items-center justify-content-between">
+              <label htmlFor="createActive" className="font-bold">
+                Activo
+              </label>
+              <InputSwitch
+                id="createActive"
+                checked={createForm.is_active || false}
+                onChange={(e) => setCreateForm({ ...createForm, is_active: e.value })}
+              />
+            </div>
           </div>
-          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
-            <Button label="Cancelar" onClick={() => setCreating(false)} className="p-button-text" />
-            <Button label="Crear" onClick={handleCreateSave} className="p-button-primary" />
-          </div>
+        </div>
+        <div className="premium-modal-footer">
+          <Button label="Cancelar" onClick={() => setCreating(false)} className="p-button-text" />
+          <Button label="Crear" onClick={handleCreateSave} className="p-button-primary" />
         </div>
       </Dialog>
     </div>

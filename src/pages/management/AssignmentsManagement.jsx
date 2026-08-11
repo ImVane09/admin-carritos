@@ -357,81 +357,85 @@ export default function AssignmentsManagement() {
           ]}
         />
 
-      {/* Modal Crear/Editar */}
-      <Dialog
+      <Dialog blockScroll
         visible={creating || editing}
-        style={{ width: '500px' }}
+        style={{ width: '32rem' }}
         header={editing ? 'Editar Asignación' : 'Nueva Asignación'}
         modal
         onHide={closeForm}
-        footer={
-          <div>
-            <Button label="Cancelar" icon="pi pi-times" onClick={closeForm} className="p-button-text" />
-            <Button label="Guardar" icon="pi pi-save" onClick={handleSave} autoFocus />
-          </div>
-        }
       >
-        <div className="p-fluid">
-          <div className="p-field" style={{ marginBottom: '1.5rem' }}>
-            <label htmlFor="user_id" style={{ display: 'block', marginBottom: '0.5rem' }}>Conductor</label>
-            <Dropdown 
-              id="user_id" 
-              value={form.user_id} 
-              options={driversOptions} 
-              onChange={(e) => setForm({ ...form, user_id: e.value })} 
-              optionLabel="name" 
-              optionValue="id"
-              placeholder="Selecciona un conductor"
-              disabled={editing}
-              onShow={onDriversShow}
-              itemTemplate={driverItemTemplate}
-              valueTemplate={driverValueTemplate}
-            />
+        <div className="grid p-fluid">
+          <div className="col-12 mb-3">
+            <div className="flex flex-column gap-2">
+              <label htmlFor="user_id" className="font-bold">Conductor</label>
+              <Dropdown 
+                id="user_id" 
+                value={form.user_id} 
+                options={driversOptions} 
+                onChange={(e) => setForm({ ...form, user_id: e.value })} 
+                optionLabel="name" 
+                optionValue="id"
+                placeholder="Selecciona un conductor"
+                disabled={editing}
+                onShow={onDriversShow}
+                itemTemplate={driverItemTemplate}
+                valueTemplate={driverValueTemplate}
+              />
+            </div>
           </div>
           
-          <div className="p-field" style={{ marginBottom: '1.5rem' }}>
-            <label htmlFor="vehicle_id" style={{ display: 'block', marginBottom: '0.5rem' }}>Vehículo (Carrito)</label>
-            <Dropdown 
-              id="vehicle_id" 
-              value={form.vehicle_id} 
-              options={vehiclesOptions} 
-              onChange={(e) => setForm({ ...form, vehicle_id: e.value })} 
-              optionLabel="brand"
-              optionValue="id"
-              placeholder="Selecciona el vehículo a asignar" 
-              onShow={onVehiclesShow}
-              itemTemplate={vehicleItemTemplate}
-              valueTemplate={vehicleValueTemplate}
-            />
+          <div className="col-12 mb-3">
+            <div className="flex flex-column gap-2">
+              <label htmlFor="vehicle_id" className="font-bold">Vehículo (Carrito)</label>
+              <Dropdown 
+                id="vehicle_id" 
+                value={form.vehicle_id} 
+                options={vehiclesOptions} 
+                onChange={(e) => setForm({ ...form, vehicle_id: e.value })} 
+                optionLabel="brand"
+                optionValue="id"
+                placeholder="Selecciona el vehículo a asignar" 
+                onShow={onVehiclesShow}
+                itemTemplate={vehicleItemTemplate}
+                valueTemplate={vehicleValueTemplate}
+              />
+            </div>
           </div>
 
-          <div className="p-field" style={{ marginBottom: '1.5rem' }}>
-            <label htmlFor="shift_id" style={{ display: 'block', marginBottom: '0.5rem' }}>Horario (Turno)</label>
-            <Dropdown 
-              id="shift_id" 
-              value={form.shift_id} 
-              options={shiftsOptions} 
-              onChange={(e) => setForm({ ...form, shift_id: e.value })} 
-              optionLabel="name"
-              optionValue="id"
-              placeholder="Selecciona el turno de trabajo" 
-              onShow={onShiftsShow}
-              itemTemplate={shiftItemTemplate}
-              valueTemplate={shiftValueTemplate}
-            />
-          </div>
-          {editing && (
-            <div className="p-field" style={{ display: 'flex', alignItems: 'center', marginTop: '1.5rem' }}>
-              <InputSwitch 
-                id="is_active" 
-                checked={form.is_active} 
-                onChange={(e) => setForm({ ...form, is_active: e.value })} 
+          <div className="col-12 mb-3">
+            <div className="flex flex-column gap-2">
+              <label htmlFor="shift_id" className="font-bold">Horario (Turno)</label>
+              <Dropdown 
+                id="shift_id" 
+                value={form.shift_id} 
+                options={shiftsOptions} 
+                onChange={(e) => setForm({ ...form, shift_id: e.value })} 
+                optionLabel="name"
+                optionValue="id"
+                placeholder="Selecciona el turno de trabajo" 
+                onShow={onShiftsShow}
+                itemTemplate={shiftItemTemplate}
+                valueTemplate={shiftValueTemplate}
               />
-              <label htmlFor="is_active" style={{ marginLeft: '0.5rem', fontWeight: 'bold' }}>
-                Activo
-              </label>
+            </div>
+          </div>
+          
+          {editing && (
+            <div className="col-12 mb-3">
+              <div className="flex align-items-center justify-content-between">
+                <label htmlFor="is_active" className="font-bold">Activo</label>
+                <InputSwitch 
+                  id="is_active" 
+                  checked={form.is_active} 
+                  onChange={(e) => setForm({ ...form, is_active: e.value })} 
+                />
+              </div>
             </div>
           )}
+        </div>
+        <div className="premium-modal-footer">
+          <Button label="Cancelar" onClick={closeForm} className="p-button-text" />
+          <Button label={editing ? "Guardar" : "Crear"} onClick={handleSave} className="p-button-primary" />
         </div>
       </Dialog>
 
@@ -466,7 +470,7 @@ export default function AssignmentsManagement() {
       </DetailModal>
 
       {/* Modal Confirmar Eliminación */}
-      <Dialog
+      <Dialog blockScroll
         visible={!!deleteConfirm}
         style={{ width: '450px' }}
         header="Confirmar Eliminación"

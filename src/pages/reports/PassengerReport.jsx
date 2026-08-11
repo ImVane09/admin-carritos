@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import { Tag } from "primereact/tag";
-import { fetchReportsAllSummary, fetchReportsPassengersSummary, exportPassengersReport } from "../../services/adminService";
+import {
+  fetchReportsAllSummary,
+  fetchReportsPassengersSummary,
+  exportPassengersReport,
+} from "../../services/adminService";
 import DateRangeFilter from "../../components/ui/DateRangeFilter";
 import PassengerReportCharts from "../../components/reports/PassengerReportCharts";
 import CustomDataTable from "../../components/ui/CustomDataTable";
@@ -66,7 +70,6 @@ export default function PassengerReport() {
 
       await fetchPaginatedPassengers(1, debouncedGlobalFilter);
       setPassengersPage(1);
-      
     } catch (error) {
       console.error("Error al cargar datos del reporte de pasajeros:", error);
     } finally {
@@ -116,17 +119,24 @@ export default function PassengerReport() {
     { field: "email", header: "Correo" },
     { field: "completed_trips", header: "Completados" },
     { field: "canceled_trips", header: "Cancelados" },
-    { header: "Estado", body: statusTemplate }
+    { header: "Estado", body: statusTemplate },
   ];
 
   return (
-    <div className="reports-layout" style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+    <div
+      className="reports-layout"
+      style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}
+    >
       <div className="dashboard-welcome-banner">
         <div className="welcome-banner-content">
           <h1>Reporte de Pasajeros y Demanda</h1>
-          <p>Análisis de flujos, horarios pico de transporte y comportamiento general de la demanda diaria.</p>
+          <p>
+            Análisis de flujos, horarios pico de transporte y comportamiento
+            <br />
+            general de la demanda diaria.
+          </p>
         </div>
-        <DateRangeFilter 
+        <DateRangeFilter
           startDate={startDate}
           setStartDate={setStartDate}
           endDate={endDate}
@@ -136,7 +146,7 @@ export default function PassengerReport() {
         />
       </div>
 
-      <PassengerReportCharts 
+      <PassengerReportCharts
         hourly={hourly}
         daily={daily}
         cancellations={cancellations}

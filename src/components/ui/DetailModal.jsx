@@ -12,7 +12,7 @@ export function DetailModal({
   children 
 }) {
   return (
-    <Dialog
+    <Dialog blockScroll
       header={header}
       visible={visible}
       style={{ width: "30rem" }}

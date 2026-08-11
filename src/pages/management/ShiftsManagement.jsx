@@ -204,47 +204,52 @@ export default function ShiftsManagement() {
           ]}
         />
 
-      {/* Modal Crear/Editar */}
-      <Dialog
+      <Dialog blockScroll
         visible={creating || editing}
-        style={{ width: '450px' }}
+        style={{ width: '32rem' }}
         header={editing ? 'Editar Horario' : 'Nuevo Horario'}
         modal
         onHide={closeForm}
-        footer={
-          <div>
-            <Button label="Cancelar" icon="pi pi-times" onClick={closeForm} className="p-button-text" />
-            <Button label="Guardar" icon="pi pi-check" onClick={handleSave} autoFocus />
-          </div>
-        }
       >
-        <div className="p-fluid">
-          <div className="p-field" style={{ marginBottom: '1.5rem' }}>
-            <label htmlFor="name" style={{ display: 'block', marginBottom: '0.5rem' }}>Nombre del Turno</label>
-            <InputText id="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ej: Turno Mañana" />
+        <div className="grid p-fluid">
+          <div className="col-12 mb-3">
+            <div className="flex flex-column gap-2">
+              <label htmlFor="name" className="font-bold">Nombre del Turno</label>
+              <InputText id="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ej: Turno Mañana" />
+            </div>
           </div>
           
-          <div className="p-field" style={{ marginBottom: '1.5rem' }}>
-            <label htmlFor="start_time" style={{ display: 'block', marginBottom: '0.5rem' }}>Hora de Inicio</label>
-            <InputText id="start_time" type="time" value={form.start_time} onChange={(e) => setForm({ ...form, start_time: e.target.value })} />
+          <div className="col-12 mb-3">
+            <div className="flex flex-column gap-2">
+              <label htmlFor="start_time" className="font-bold">Hora de Inicio</label>
+              <InputText id="start_time" type="time" value={form.start_time} onChange={(e) => setForm({ ...form, start_time: e.target.value })} />
+            </div>
           </div>
 
-          <div className="p-field">
-            <label htmlFor="end_time" style={{ display: 'block', marginBottom: '0.5rem' }}>Hora de Fin</label>
-            <InputText id="end_time" type="time" value={form.end_time} onChange={(e) => setForm({ ...form, end_time: e.target.value })} />
+          <div className="col-12 mb-3">
+            <div className="flex flex-column gap-2">
+              <label htmlFor="end_time" className="font-bold">Hora de Fin</label>
+              <InputText id="end_time" type="time" value={form.end_time} onChange={(e) => setForm({ ...form, end_time: e.target.value })} />
+            </div>
           </div>
+          
           {editing && (
-            <div className="p-field" style={{ display: 'flex', alignItems: 'center', marginTop: '1.5rem' }}>
-              <InputSwitch 
-                id="is_active" 
-                checked={form.is_active} 
-                onChange={(e) => setForm({ ...form, is_active: e.value })} 
-              />
-              <label htmlFor="is_active" style={{ marginLeft: '0.5rem', fontWeight: 'bold' }}>
-                Activo
-              </label>
+            <div className="col-12 mb-3">
+              <div className="flex align-items-center justify-content-between">
+                <label htmlFor="is_active" className="font-bold">Activo</label>
+                <InputSwitch 
+                  id="is_active" 
+                  checked={form.is_active} 
+                  onChange={(e) => setForm({ ...form, is_active: e.value })} 
+                />
+              </div>
             </div>
           )}
+        </div>
+
+        <div className="premium-modal-footer">
+          <Button label="Cancelar" onClick={closeForm} className="p-button-text" />
+          <Button label={editing ? "Guardar" : "Crear"} onClick={handleSave} className="p-button-primary" />
         </div>
       </Dialog>
 
@@ -279,7 +284,7 @@ export default function ShiftsManagement() {
       </DetailModal>
 
       {/* Modal Confirmar Eliminación */}
-      <Dialog
+      <Dialog blockScroll
         visible={!!deleteConfirm}
         style={{ width: '450px' }}
         header="Confirmar Eliminación"

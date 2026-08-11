@@ -61,7 +61,17 @@ export default function DashboardSidePanel({
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <strong style={{ color: "#854d0e", fontSize: "0.95rem" }}>{req.driverName}</strong>
               </div>
-              <p style={{ margin: "0", fontSize: "0.85rem", color: "#a16207" }}>
+              <p 
+                style={{ 
+                  margin: "0", 
+                  fontSize: "0.85rem", 
+                  color: "#a16207",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis"
+                }}
+                title={`Motivo: "${req.reason}"`}
+              >
                 Motivo: "{req.reason}"
               </p>
               <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.25rem" }}>

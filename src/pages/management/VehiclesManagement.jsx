@@ -279,96 +279,109 @@ export default function VehiclesManagement() {
           )}
         </DetailModal>
 
-        <Dialog
+        <Dialog blockScroll
           header={creating ? 'Registrar Nuevo Vehículo' : 'Editar Vehículo'}
           visible={creating || editing}
           style={{ width: '40rem' }}
           onHide={closeForm}
         >
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', paddingTop: '1rem' }}>
-            <div style={{ gridColumn: '1 / -1' }}>
-              <label htmlFor="vehicle-plate" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>Placas</label>
-              <InputText
-                id="vehicle-plate"
-                value={form.plate}
-                onChange={(event) => setForm({ ...form, plate: event.target.value.toUpperCase() })}
-                className="w-full"
-                placeholder="Ej: ABC-1234"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="vehicle-brand" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>Marca</label>
-              <InputText
-                id="vehicle-brand"
-                value={form.brand}
-                onChange={(event) => setForm({ ...form, brand: event.target.value })}
-                className="w-full"
-                placeholder="Ej: Toyota"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="vehicle-model" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>Modelo</label>
-              <InputText
-                id="vehicle-model"
-                value={form.model}
-                onChange={(event) => setForm({ ...form, model: event.target.value })}
-                className="w-full"
-                placeholder="Ej: Corolla"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="vehicle-color" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>Color</label>
-              <InputText
-                id="vehicle-color"
-                value={form.color}
-                onChange={(event) => setForm({ ...form, color: event.target.value })}
-                className="w-full"
-                placeholder="Ej: Blanco"
-              />
-            </div>
-
-            <div style={{ gridColumn: '1 / -1' }}>
-              <label htmlFor="vehicle-capacity" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>Capacidad (Pasajeros)</label>
-              <InputText
-                id="vehicle-capacity"
-                type="number"
-                min="1"
-                max="10"
-                value={form.capacity}
-                onChange={(event) => setForm({ ...form, capacity: event.target.value })}
-                className="w-full"
-                placeholder="Ej: 4"
-              />
-            </div>
-            {editing && (
-              <div style={{ gridColumn: '1 / -1', marginTop: '0.5rem' }}>
-                <label htmlFor="status" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>Estado del Vehículo</label>
-                <Dropdown 
-                  id="status" 
-                  value={form.status} 
-                  options={[
-                    { label: 'Activo', value: 'active' },
-                    { label: 'Inactivo', value: 'inactive' },
-                    { label: 'En Mantenimiento', value: 'maintenance' }
-                  ]}
-                  onChange={(e) => setForm({ ...form, status: e.value })} 
+          <div className="grid p-fluid pt-3">
+            <div className="col-12 mb-3">
+              <div className="flex flex-column gap-2">
+                <label htmlFor="vehicle-plate" className="font-bold">Placas</label>
+                <InputText
+                  id="vehicle-plate"
+                  value={form.plate}
+                  onChange={(event) => setForm({ ...form, plate: event.target.value.toUpperCase() })}
                   className="w-full"
-                  placeholder="Selecciona un estado"
+                  placeholder="Ej: ABC-1234"
                 />
+              </div>
+            </div>
+
+            <div className="col-12 md:col-6 mb-3">
+              <div className="flex flex-column gap-2">
+                <label htmlFor="vehicle-brand" className="font-bold">Marca</label>
+                <InputText
+                  id="vehicle-brand"
+                  value={form.brand}
+                  onChange={(event) => setForm({ ...form, brand: event.target.value })}
+                  className="w-full"
+                  placeholder="Ej: Toyota"
+                />
+              </div>
+            </div>
+
+            <div className="col-12 md:col-6 mb-3">
+              <div className="flex flex-column gap-2">
+                <label htmlFor="vehicle-model" className="font-bold">Modelo</label>
+                <InputText
+                  id="vehicle-model"
+                  value={form.model}
+                  onChange={(event) => setForm({ ...form, model: event.target.value })}
+                  className="w-full"
+                  placeholder="Ej: Corolla"
+                />
+              </div>
+            </div>
+
+            <div className="col-12 md:col-6 mb-3">
+              <div className="flex flex-column gap-2">
+                <label htmlFor="vehicle-color" className="font-bold">Color</label>
+                <InputText
+                  id="vehicle-color"
+                  value={form.color}
+                  onChange={(event) => setForm({ ...form, color: event.target.value })}
+                  className="w-full"
+                  placeholder="Ej: Blanco"
+                />
+              </div>
+            </div>
+
+            <div className="col-12 md:col-6 mb-3">
+              <div className="flex flex-column gap-2">
+                <label htmlFor="vehicle-capacity" className="font-bold">Capacidad (Pasajeros)</label>
+                <InputText
+                  id="vehicle-capacity"
+                  type="number"
+                  min="1"
+                  max="10"
+                  value={form.capacity}
+                  onChange={(event) => setForm({ ...form, capacity: event.target.value })}
+                  className="w-full"
+                  placeholder="Ej: 4"
+                />
+              </div>
+            </div>
+            
+            {editing && (
+              <div className="col-12 mb-3">
+                <div className="flex flex-column gap-2">
+                  <label htmlFor="status" className="font-bold">Estado del Vehículo</label>
+                  <Dropdown 
+                    id="status" 
+                    value={form.status} 
+                    options={[
+                      { label: 'Activo', value: 'active' },
+                      { label: 'Inactivo', value: 'inactive' },
+                      { label: 'En Mantenimiento', value: 'maintenance' }
+                    ]}
+                    onChange={(e) => setForm({ ...form, status: e.value })} 
+                    className="w-full"
+                    placeholder="Selecciona un estado"
+                  />
+                </div>
               </div>
             )}
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '2rem' }}>
+          <div className="premium-modal-footer">
             <Button label="Cancelar" onClick={closeForm} className="p-button-text" />
             <Button label={creating ? 'Registrar' : 'Guardar'} onClick={handleSave} className="p-button-primary" />
           </div>
         </Dialog>
 
-        <Dialog
+        <Dialog blockScroll
           header="Confirmar Eliminación"
           visible={!!deleteConfirm}
           style={{ width: '32rem' }}
