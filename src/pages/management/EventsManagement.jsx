@@ -10,6 +10,8 @@ import { InputText } from "primereact/inputtext";
 import { InputTextarea } from "primereact/inputtextarea";
 import { Calendar } from "primereact/calendar";
 import { MultiSelect } from "primereact/multiselect";
+import { Dropdown } from "primereact/dropdown";
+import { InputSwitch } from "primereact/inputswitch";
 import { Toast } from "primereact/toast";
 import {
   fetchEvents,
@@ -27,6 +29,7 @@ const EMPTY_FORM = {
   description: "",
   start_date: null,
   end_date: null,
+  is_active: true,
   assignment_ids: [],
 };
 
@@ -37,7 +40,11 @@ export default function EventsManagement() {
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
+  const [globalFilterValue, setGlobalFilterValue] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [statusFilter, setStatusFilter] = useState("all");
   const [totalRecords, setTotalRecords] = useState(0);
+  const [globalStats, setGlobalStats] = useState({ total: 0, active: 0, reserved: 0 });
 
   // Modal states
   const [creating, setCreating] = useState(false);
@@ -50,9 +57,21 @@ export default function EventsManagement() {
   const loadData = async (pageNumber = 1) => {
     setLoading(true);
     try {
-      const eventsData = await fetchEvents({ page: pageNumber, per_page: 15 });
+      const eventsData = await fetchEvents({ 
+        search: globalFilterValue, 
+        status: statusFilter, 
+        page: pageNumber, 
+        per_page: 15 
+      });
       setEvents(eventsData?.data || []);
       setTotalRecords(eventsData?.total || 0);
+      if (eventsData?.total_registrados !== undefined) {
+        setGlobalStats({
+          total: eventsData.total_registrados || 0,
+          active: eventsData.total_activos || 0,
+          reserved: eventsData.total_conductores_reservados || 0
+        });
+      }
       setPage(pageNumber);
     } catch (err) {
       console.error("Error al cargar datos:", err);
@@ -67,8 +86,8 @@ export default function EventsManagement() {
   };
 
   useEffect(() => {
-    loadData(1);
-  }, []);
+    loadData(page);
+  }, [page, statusFilter, globalFilterValue]);
 
   const loadAssignmentsIfNeeded = async () => {
     if (assignments.length === 0) {
@@ -102,6 +121,7 @@ export default function EventsManagement() {
       description: rowData.description,
       start_date: new Date(rowData.start_date),
       end_date: new Date(rowData.end_date),
+      is_active: rowData.is_active,
       assignment_ids: rowData.assignments
         ? rowData.assignments.map((a) => a.id)
         : [],
@@ -126,14 +146,17 @@ export default function EventsManagement() {
         return;
       }
 
+      setIsSubmitting(true);
+
+      const pad = (n) => String(n).padStart(2, "0");
+      const formatLocal = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+      
       const payload = {
         name: form.name,
         description: form.description,
-        start_date: form.start_date
-          .toISOString()
-          .slice(0, 19)
-          .replace("T", " "),
-        end_date: form.end_date.toISOString().slice(0, 19).replace("T", " "),
+        start_date: formatLocal(form.start_date),
+        end_date: formatLocal(form.end_date),
+        is_active: form.is_active,
         assignment_ids: form.assignment_ids,
       };
 
@@ -155,18 +178,21 @@ export default function EventsManagement() {
 
       setCreating(false);
       setEditing(false);
-      loadData(page);
+      await loadData(page);
     } catch (error) {
       toast.current?.show({
         severity: "error",
         summary: "Error",
         detail: "Ocurrió un error al guardar el evento.",
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleDelete = async () => {
     if (!deleteConfirm) return;
+    setIsSubmitting(true);
     try {
       await deleteEvent(deleteConfirm.id);
       toast.current?.show({
@@ -175,13 +201,15 @@ export default function EventsManagement() {
         detail: "Evento eliminado correctamente.",
       });
       setDeleteConfirm(null);
-      loadData(page);
+      await loadData(page);
     } catch (error) {
       toast.current?.show({
         severity: "error",
         summary: "Error",
         detail: "Ocurrió un error al eliminar el evento.",
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -195,16 +223,24 @@ export default function EventsManagement() {
   );
 
   const statusTemplate = (rowData) => {
+    if (rowData.deleted_at) {
+      return <span className="status-badge status-danger">Eliminado</span>;
+    }
+
     const now = new Date();
     const start = new Date(rowData.start_date);
     const end = new Date(rowData.end_date);
 
-    if (now < start) {
-      return <span className="status-badge status-pending">Futuro</span>;
-    } else if (now > end) {
-      return <span className="status-badge status-inactive">Pasado</span>;
+    if (rowData.is_active === false || rowData.is_active === 0) {
+      return <span className="status-badge status-inactivo">Inactivo</span>;
     }
-    return <span className="status-badge status-active">Activo</span>;
+
+    if (now < start) {
+      return <span className="status-badge status-info">Futuro</span>;
+    } else if (now > end) {
+      return <span className="status-badge status-warning">Pasado</span>;
+    }
+    return <span className="status-badge status-activo">Activo</span>;
   };
 
   const assignmentsTemplate = (rowData) => {
@@ -236,7 +272,7 @@ export default function EventsManagement() {
         >
           <StatCardPremium
             title="Total Eventos"
-            value={events.length}
+            value={globalStats.total}
             icon="pi pi-ticket"
             tone="blue"
             subtitle="Registrados en el sistema"
@@ -244,14 +280,7 @@ export default function EventsManagement() {
           />
           <StatCardPremium
             title="Eventos Activos"
-            value={
-              events.filter((e) => {
-                const now = new Date();
-                return (
-                  now >= new Date(e.start_date) && now <= new Date(e.end_date)
-                );
-              }).length
-            }
+            value={globalStats.active}
             icon="pi pi-calendar-clock"
             tone="green"
             subtitle="En curso actualmente"
@@ -259,10 +288,7 @@ export default function EventsManagement() {
           />
           <StatCardPremium
             title="Conductores Reservados"
-            value={events.reduce(
-              (acc, e) => acc + (e.assignments ? e.assignments.length : 0),
-              0,
-            )}
+            value={globalStats.reserved}
             icon="pi pi-car"
             tone="purple"
             subtitle="Asignados a eventos"
@@ -278,8 +304,30 @@ export default function EventsManagement() {
           page={page}
           totalRecords={totalRecords}
           rows={15}
-          onPageChange={(newPage) => loadData(newPage)}
+          onPageChange={(newPage) => setPage(newPage)}
           title="Listado de Eventos"
+          globalFilter={globalFilterValue}
+          setGlobalFilter={(val) => { setGlobalFilterValue(val); setPage(1); }}
+          headerElements={
+            <div style={{ display: 'flex', gap: '1rem', width: '100%', maxWidth: '300px' }}>
+              <Dropdown
+                value={statusFilter}
+                options={[
+                  { label: 'Todos', value: 'all' },
+                  { label: 'Activos', value: 'active' },
+                  { label: 'Pasados', value: 'past' },
+                  { label: 'Futuros', value: 'future' },
+                  { label: 'Eliminados', value: 'deleted' }
+                ]}
+                onChange={(e) => {
+                  setStatusFilter(e.value);
+                  setPage(1);
+                }}
+                placeholder="Filtrar por estado"
+                className="w-full"
+              />
+            </div>
+          }
           columns={[
             { field: "name", header: "Nombre" },
             {
@@ -398,6 +446,17 @@ export default function EventsManagement() {
               />
             </div>
           </div>
+
+          <div className="col-12 flex justify-content-end align-items-center gap-3 mt-2">
+            <label htmlFor="is_active" className="font-bold mb-0">
+              {form.is_active ? "Evento Activo" : "Evento Inactivo"}
+            </label>
+            <InputSwitch
+              id="is_active"
+              checked={form.is_active}
+              onChange={(e) => setForm({ ...form, is_active: e.value })}
+            />
+          </div>
         </div>
         <div className="premium-modal-footer">
           <Button
@@ -411,30 +470,35 @@ export default function EventsManagement() {
           <Button
             label={creating ? "Crear" : "Guardar"}
             onClick={handleSave}
+            loading={isSubmitting}
             className="p-button-primary"
           />
         </div>
       </Dialog>
 
       <DetailModal
+        header="Detalles del Evento"
         visible={viewing}
         onHide={() => setViewing(false)}
-        title="Detalles del Evento"
+        icon="pi pi-ticket"
+        title={selected?.name}
+        subtitle={`ID: #${selected?.id}`}
       >
         {selected && (
-          <div className="flex flex-column gap-3">
-            <DetailField label="ID" value={selected.id} />
-            <DetailField label="Nombre" value={selected.name} />
-            <DetailField label="Descripción" value={selected.description} />
+          <>
+            <DetailField icon="pi pi-align-left" label="Descripción" value={selected.description} />
             <DetailField
+              icon="pi pi-calendar-plus"
               label="Inicio"
               value={new Date(selected.start_date).toLocaleString("es-ES")}
             />
             <DetailField
+              icon="pi pi-calendar-minus"
               label="Fin"
               value={new Date(selected.end_date).toLocaleString("es-ES")}
             />
             <DetailField
+              icon="pi pi-users"
               label="Conductores"
               value={
                 selected.assignments
@@ -442,7 +506,8 @@ export default function EventsManagement() {
                   : "Ninguno"
               }
             />
-          </div>
+            <DetailField icon="pi pi-info-circle" label="Estado" value={statusTemplate(selected)} />
+          </>
         )}
       </DetailModal>
 
@@ -464,6 +529,7 @@ export default function EventsManagement() {
               onClick={handleDelete}
               className="p-button-danger"
               autoFocus
+              loading={isSubmitting}
             />
           </div>
         }

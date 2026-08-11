@@ -19,7 +19,8 @@ export default function DriverModals({
   setCreateForm,
   handleSave,
   confirmDelete,
-  handleCreateSave
+  handleCreateSave,
+  isSubmitting
 }) {
   return (
     <>
@@ -310,6 +311,7 @@ export default function DriverModals({
               label="Guardar"
               onClick={handleSave}
               className="p-button-primary"
+              loading={isSubmitting}
             />
           </div>
           </>
@@ -385,6 +387,7 @@ export default function DriverModals({
             <Button
               label="Suspender"
               onClick={confirmDelete}
+              loading={isSubmitting}
               style={{
                 flex: 1,
                 borderRadius: "8px",
@@ -478,7 +481,7 @@ export default function DriverModals({
         </div>
         <div className="premium-modal-footer">
           <Button label="Cancelar" onClick={() => setCreating(false)} className="p-button-text" />
-          <Button label="Crear" onClick={handleCreateSave} className="p-button-primary" />
+          <Button label="Crear" onClick={handleCreateSave} className="p-button-primary" loading={isSubmitting} />
         </div>
       </Dialog>
     </>

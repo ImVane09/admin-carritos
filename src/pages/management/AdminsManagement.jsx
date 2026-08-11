@@ -70,7 +70,7 @@ export default function AdminsManagement() {
   };
 
   const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState(null);
+  const [statusFilter, setStatusFilter] = useState('all');
   const [page, setPage] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
   const [globalStats, setGlobalStats] = useState({ inactive: 0, deleted: 0 });
@@ -83,41 +83,44 @@ export default function AdminsManagement() {
     return () => clearTimeout(handler);
   }, [query]);
 
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      try {
-        const result = await fetchUsers({
-          per_page: 10,
-          page,
-          search: debouncedQuery,
-          role_id: 1,
-          status: statusFilter,
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const loadData = async (pageNumber = page) => {
+    setLoading(true);
+    try {
+      const result = await fetchUsers({
+        per_page: 10,
+        page: pageNumber,
+        search: debouncedQuery,
+        role_id: 1,
+        status: statusFilter,
+      });
+      setUsers(result?.data || []);
+      setTotalRecords(result?.total || 0);
+      if (result?.total_inactivos !== undefined) {
+        setGlobalStats({
+          inactive: result.total_inactivos || 0,
+          deleted: result.total_eliminados || 0,
+          total: result.total_registrados || 0,
         });
-        setUsers(result?.data || []);
-        setTotalRecords(result?.total || 0);
-        if (result?.total_inactivos !== undefined) {
-          setGlobalStats({
-            inactive: result.total_inactivos || 0,
-            deleted: result.total_eliminados || 0,
-            total: result.total_registrados || 0,
-          });
-        }
-      } catch (err) {
-        console.error("Error al cargar administradores:", err);
-        toast.current?.show({
-          severity: "error",
-          summary: "Error",
-          detail:
-            "No se pudieron cargar los administradores desde el servidor.",
-        });
-        setUsers([]);
-        setTotalRecords(0);
-      } finally {
-        setLoading(false);
       }
-    };
-    load();
+    } catch (err) {
+      console.error("Error al cargar administradores:", err);
+      toast.current?.show({
+        severity: "error",
+        summary: "Error",
+        detail:
+          "No se pudieron cargar los administradores desde el servidor.",
+      });
+      setUsers([]);
+      setTotalRecords(0);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData(page);
   }, [page, debouncedQuery, statusFilter]);
 
   const statusBody = (row) => {
@@ -160,9 +163,8 @@ export default function AdminsManagement() {
       return;
     }
 
-    setLoading(true);
+    setIsSubmitting(true);
     try {
-      // 1. Guardar cambios en el backend (nombre, correo y opcionalmente contraseña)
       const payload = {
         name: editForm.name,
         email: editForm.email,
@@ -171,32 +173,11 @@ export default function AdminsManagement() {
       if (editForm.password?.trim()) {
         payload.password = editForm.password.trim();
       }
-      const response = await updateUser(editForm.id, payload);
+      await updateUser(editForm.id, payload);
 
-      // 2. Si el estado "activo" cambió, ejecutar el toggle
       const original = users.find((u) => u.id === editForm.id);
-      let activeState = !!editForm.is_active;
       if (original && !!original.is_active !== !!editForm.is_active) {
-        const toggleRes = await toggleUserStatus(editForm.id);
-        if (toggleRes && toggleRes.user) {
-          activeState = !!toggleRes.user.is_active;
-        }
-      }
-
-      const merged = {
-        ...editForm,
-        ...response.user,
-        is_active: activeState,
-      };
-
-      if (statusFilter === "active" && !activeState) {
-        setUsers(users.filter((u) => u.id !== editForm.id));
-        setTotalRecords((prev) => prev - 1);
-      } else if (statusFilter === "inactive" && activeState) {
-        setUsers(users.filter((u) => u.id !== editForm.id));
-        setTotalRecords((prev) => prev - 1);
-      } else {
-        setUsers(users.map((u) => (u.id === editForm.id ? merged : u)));
+        await toggleUserStatus(editForm.id);
       }
 
       setEditing(null);
@@ -205,6 +186,7 @@ export default function AdminsManagement() {
         summary: "Éxito",
         detail: "Administrador actualizado correctamente",
       });
+      await loadData();
     } catch (err) {
       console.error(err);
       toast.current?.show({
@@ -213,7 +195,7 @@ export default function AdminsManagement() {
         detail: err.response?.data?.error || "Error en el servidor",
       });
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -222,27 +204,16 @@ export default function AdminsManagement() {
   };
 
   const confirmDelete = async () => {
-    setLoading(true);
+    setIsSubmitting(true);
     try {
       await deleteUser(deleteConfirm);
-      if (statusFilter === "active" || statusFilter === "inactive") {
-        setUsers(users.filter((u) => u.id !== deleteConfirm));
-        setTotalRecords((prev) => prev - 1);
-      } else {
-        setUsers(
-          users.map((u) =>
-            u.id === deleteConfirm
-              ? { ...u, deleted_at: new Date().toISOString() }
-              : u,
-          ),
-        );
-      }
       setDeleteConfirm(null);
       toast.current?.show({
         severity: "success",
         summary: "Eliminado",
         detail: "Administrador eliminado correctamente",
       });
+      await loadData();
     } catch (err) {
       console.error(err);
       toast.current?.show({
@@ -252,27 +223,20 @@ export default function AdminsManagement() {
           err.response?.data?.error || "No se pudo eliminar al administrador",
       });
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
   const handleRestore = async (row) => {
-    setLoading(true);
+    setIsSubmitting(true);
     try {
       await restoreUser(row.id);
-      if (statusFilter === "deleted") {
-        setUsers(users.filter((u) => u.id !== row.id));
-        setTotalRecords((prev) => prev - 1);
-      } else {
-        setUsers(
-          users.map((u) => (u.id === row.id ? { ...u, deleted_at: null } : u)),
-        );
-      }
       toast.current?.show({
         severity: "success",
         summary: "Restaurado",
         detail: "Administrador restaurado correctamente",
       });
+      await loadData();
     } catch (err) {
       console.error(err);
       toast.current?.show({
@@ -282,7 +246,7 @@ export default function AdminsManagement() {
           err.response?.data?.error || "No se pudo restaurar al administrador",
       });
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -318,42 +282,31 @@ export default function AdminsManagement() {
       });
       return;
     }
-
-    setLoading(true);
+    setIsSubmitting(true);
     try {
-      const response = await createUserAdmin({
+      await createUserAdmin({
         name: createForm.name.trim(),
         email: createForm.email.trim(),
         password: createForm.password.trim(),
         permissions: createForm.permissions || [],
       });
 
-      const merged = {
-        ...response,
-        rol: { rol_name: "admin" },
-        created_at: new Date().toISOString(),
-      };
-
-      setUsers([merged, ...users]);
-      setTotalRecords((prev) => prev + 1);
       setCreating(false);
       toast.current?.show({
         severity: "success",
         summary: "Creado",
         detail: "Administrador creado correctamente",
       });
+      await loadData();
     } catch (err) {
       console.error(err);
       toast.current?.show({
         severity: "error",
         summary: "Error al crear",
-        detail:
-          err.response?.data?.error ||
-          err.response?.data?.message ||
-          "Error del servidor",
+        detail: err.response?.data?.error || "Error en el servidor",
       });
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -588,6 +541,7 @@ export default function AdminsManagement() {
                 label="Guardar"
                 onClick={handleSave}
                 className="p-button-primary"
+                loading={isSubmitting}
               />
             </div>
             </>
@@ -663,6 +617,7 @@ export default function AdminsManagement() {
               <Button
                 label="Suspender"
                 onClick={confirmDelete}
+                loading={isSubmitting}
                 style={{
                   flex: 1,
                   borderRadius: "8px",
@@ -781,6 +736,7 @@ export default function AdminsManagement() {
               label="Crear"
               onClick={handleCreateSave}
               className="p-button-primary"
+              loading={isSubmitting}
             />
           </div>
         </Dialog>

@@ -40,6 +40,7 @@ export default function VehiclesManagement() {
   const [statusFilter, setStatusFilter] = useState(null);
   const [page, setPage] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
+  const [globalStats, setGlobalStats] = useState({ total: 0, inactive: 0, maintenance: 0 });
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -49,24 +50,33 @@ export default function VehiclesManagement() {
     return () => clearTimeout(handler);
   }, [query]);
 
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      try {
-        const result = await fetchVehicles({ page, per_page: 10, search: debouncedQuery, status: statusFilter });
-        const dataArray = result?.data || [];
-        setVehicles(dataArray);
-        setTotalRecords(result?.total || 0);
-      } catch (err) {
-        console.error('Error al cargar vehículos:', err);
-        setVehicles([]);
-        setTotalRecords(0);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-    load();
+  const loadData = async (pageNumber = page) => {
+    setLoading(true);
+    try {
+      const result = await fetchVehicles({ page: pageNumber, per_page: 10, search: debouncedQuery, status: statusFilter });
+      const dataArray = result?.data || [];
+      setVehicles(dataArray);
+      setTotalRecords(result?.total || 0);
+      if (result?.total_registrados !== undefined) {
+        setGlobalStats({
+          total: result.total_registrados,
+          inactive: result.total_inactivos,
+          maintenance: result.total_mantenimiento
+        });
+      }
+    } catch (err) {
+      console.error('Error al cargar vehículos:', err);
+      setVehicles([]);
+      setTotalRecords(0);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData(page);
   }, [page, debouncedQuery, statusFilter]);
 
   const openCreate = () => {
@@ -105,7 +115,7 @@ export default function VehiclesManagement() {
       return;
     }
 
-    setLoading(true);
+    setIsSubmitting(true);
     try {
       const payload = {
         brand: form.brand.trim(),
@@ -117,17 +127,14 @@ export default function VehiclesManagement() {
       };
 
       if (editing) {
-        const response = await updateVehicle(form.id, payload);
-        const updatedVehicle = response.vehicle || response;
-        setVehicles(vehicles.map((v) => (v.id === form.id ? updatedVehicle : v)));
+        await updateVehicle(form.id, payload);
         toast.current?.show({ severity: 'success', summary: 'Actualizado', detail: 'Vehículo actualizado correctamente' });
       } else {
-        const response = await createVehicle(payload);
-        const newVehicle = response.vehicle || response;
-        setVehicles([newVehicle, ...vehicles]);
+        await createVehicle(payload);
         toast.current?.show({ severity: 'success', summary: 'Creado', detail: 'Vehículo creado correctamente' });
       }
       closeForm();
+      await loadData();
     } catch (err) {
       console.error(err);
       toast.current?.show({ 
@@ -136,19 +143,19 @@ export default function VehiclesManagement() {
         detail: err.response?.data?.message || err.response?.data?.error || 'Error al guardar vehículo.' 
       });
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
   const confirmDelete = async () => {
     if (!deleteConfirm) return;
 
-    setLoading(true);
+    setIsSubmitting(true);
     try {
       await deleteVehicle(deleteConfirm.id);
-      setVehicles(vehicles.filter((v) => v.id !== deleteConfirm.id));
       setDeleteConfirm(null);
       toast.current?.show({ severity: 'success', summary: 'Eliminado', detail: 'Vehículo eliminado correctamente' });
+      await loadData();
     } catch (err) {
       console.error(err);
       toast.current?.show({ 
@@ -157,7 +164,7 @@ export default function VehiclesManagement() {
         detail: err.response?.data?.message || 'No se pudo eliminar el vehículo.' 
       });
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -177,23 +184,23 @@ export default function VehiclesManagement() {
         <div className="dashboard-grid-premium">
           <StatCardPremium
             title="Total Vehículos"
-            value={totalRecords}
+            value={globalStats.total}
             icon="pi pi-car"
             tone="blue"
             subtitle="Registrados en sistema"
             loading={loading}
           />
           <StatCardPremium
-            title="Inactivos (Pág)"
-            value={vehicles.filter(v => v.status === 'inactive' && !v.deleted_at).length}
+            title="Inactivos"
+            value={globalStats.inactive}
             icon="pi pi-times-circle"
             tone="red"
             subtitle="Listados actualmente"
             loading={loading}
           />
           <StatCardPremium
-            title="Mantenimiento (Pág)"
-            value={vehicles.filter(v => v.status === 'maintenance' && !v.deleted_at).length}
+            title="Mantenimiento"
+            value={globalStats.maintenance}
             icon="pi pi-wrench"
             tone="amber"
             subtitle="Listados actualmente"
@@ -377,7 +384,7 @@ export default function VehiclesManagement() {
 
           <div className="premium-modal-footer">
             <Button label="Cancelar" onClick={closeForm} className="p-button-text" />
-            <Button label={creating ? 'Registrar' : 'Guardar'} onClick={handleSave} className="p-button-primary" />
+            <Button label={creating ? 'Registrar' : 'Guardar'} onClick={handleSave} className="p-button-primary" loading={isSubmitting} />
           </div>
         </Dialog>
 
@@ -390,7 +397,7 @@ export default function VehiclesManagement() {
           <p>¿Está seguro que desea eliminar este vehículo? Esta acción no se puede deshacer.</p>
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
             <Button label="Cancelar" onClick={() => setDeleteConfirm(null)} className="p-button-text" />
-            <Button label="Eliminar" onClick={confirmDelete} className="p-button-danger" />
+            <Button label="Eliminar" onClick={confirmDelete} className="p-button-danger" loading={isSubmitting} />
           </div>
         </Dialog>
       </div>

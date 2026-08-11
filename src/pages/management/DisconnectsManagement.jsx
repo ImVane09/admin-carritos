@@ -5,7 +5,11 @@ import { Card } from "primereact/card";
 import CustomDataTable from "../../components/ui/CustomDataTable";
 import { Toast } from "primereact/toast";
 import { Dropdown } from "primereact/dropdown";
-import { fetchDisconnectRequests, approveDriverDisconnect, rejectDriverDisconnect } from "../../services/adminService";
+import {
+  fetchDisconnectRequests,
+  approveDriverDisconnect,
+  rejectDriverDisconnect,
+} from "../../services/adminService";
 import StatCardPremium from "../../components/StatCardPremium";
 import { Dialog } from "primereact/dialog";
 
@@ -26,25 +30,30 @@ export default function DisconnectsManagement() {
   const toast = useRef(null);
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [globalFilterValue, setGlobalFilterValue] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [page, setPage] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
-  const [globalStats, setGlobalStats] = useState({ aprobados: 0, rechazados: 0 });
+  const [globalStats, setGlobalStats] = useState({
+    aprobados: 0,
+    rechazados: 0,
+  });
 
   const [confirmDialog, setConfirmDialog] = useState(null);
 
   const statusOptions = [
-    { label: "Todos los Estados", value: "all" },
+    { label: "Todos", value: "all" },
     { label: "Pendientes", value: "pending" },
     { label: "Aprobados", value: "approved" },
-    { label: "Rechazados", value: "rejected" }
+    { label: "Rechazados", value: "rejected" },
   ];
 
-  const load = async () => {
+  const loadData = async (pageNumber = 1) => {
     setLoading(true);
     try {
-      const params = { per_page: 10, page };
-      if (statusFilter && statusFilter !== 'all') {
+      const params = { search: globalFilterValue, per_page: 10, page: pageNumber };
+      if (statusFilter && statusFilter !== "all") {
         params.status = statusFilter;
       }
       const result = await fetchDisconnectRequests(params);
@@ -54,6 +63,7 @@ export default function DisconnectsManagement() {
         setGlobalStats({
           aprobados: result.total_aprobados || 0,
           rechazados: result.total_rechazados || 0,
+          total: result.total_registrados || 0
         });
       }
     } catch (err) {
@@ -71,22 +81,37 @@ export default function DisconnectsManagement() {
   };
 
   useEffect(() => {
-    load();
-  }, [page, statusFilter]);
+    loadData(page);
+  }, [page, statusFilter, globalFilterValue]);
 
   const handleAction = async (actionType, record) => {
+    setIsSubmitting(true);
     try {
-      if (actionType === 'approve') {
+      if (actionType === "approve") {
         await approveDriverDisconnect(record.driver_id);
-        toast.current?.show({ severity: "success", summary: "Éxito", detail: "Desconexión aprobada." });
+        toast.current?.show({
+          severity: "success",
+          summary: "Éxito",
+          detail: "Desconexión aprobada.",
+        });
       } else {
         await rejectDriverDisconnect(record.driver_id);
-        toast.current?.show({ severity: "info", summary: "Rechazado", detail: "Desconexión rechazada." });
+        toast.current?.show({
+          severity: "info",
+          summary: "Rechazado",
+          detail: "Desconexión rechazada.",
+        });
       }
       setConfirmDialog(null);
-      load();
+      await loadData(1);
     } catch (error) {
-      toast.current?.show({ severity: "error", summary: "Error", detail: "Ocurrió un error al procesar la solicitud." });
+      toast.current?.show({
+        severity: "error",
+        summary: "Error",
+        detail: "Ocurrió un error al procesar la solicitud.",
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -96,27 +121,55 @@ export default function DisconnectsManagement() {
 
   const getStatusBadge = (status) => {
     switch (status) {
-      case 'pending':
+      case "pending":
         return (
-          <span className="status-badge" style={{ backgroundColor: "#fff3e0", color: "#e65100", borderLeft: "3px solid #e65100" }}>
-            Pendiente
+          <span
+            className="status-badge"
+            style={{
+              backgroundColor: "#fff3e0",
+              color: "#e65100",
+              borderLeft: "3px solid #e65100",
+            }}
+          >
+            <i className="pi pi-clock mr-1"></i> Pendiente
           </span>
         );
-      case 'approved':
+      case "approved":
         return (
-          <span className="status-badge" style={{ backgroundColor: "#e8f5e9", color: "#2e7d32", borderLeft: "3px solid #2e7d32" }}>
-            Aprobado
+          <span
+            className="status-badge"
+            style={{
+              backgroundColor: "#e8f5e9",
+              color: "#2e7d32",
+              borderLeft: "3px solid #2e7d32",
+            }}
+          >
+            <i className="pi pi-check-circle mr-1"></i> Aprobado
           </span>
         );
-      case 'rejected':
+      case "rejected":
         return (
-          <span className="status-badge" style={{ backgroundColor: "#ffebee", color: "#c62828", borderLeft: "3px solid #c62828" }}>
-            Rechazado
+          <span
+            className="status-badge"
+            style={{
+              backgroundColor: "#ffebee",
+              color: "#c62828",
+              borderLeft: "3px solid #c62828",
+            }}
+          >
+            <i className="pi pi-times-circle mr-1"></i> Rechazado
           </span>
         );
       default:
         return (
-          <span className="status-badge" style={{ backgroundColor: "#f5f5f5", color: "#616161", borderLeft: "3px solid #9e9e9e" }}>
+          <span
+            className="status-badge"
+            style={{
+              backgroundColor: "#f5f5f5",
+              color: "#616161",
+              borderLeft: "3px solid #9e9e9e",
+            }}
+          >
             Desconocido
           </span>
         );
@@ -125,21 +178,27 @@ export default function DisconnectsManagement() {
 
   const columns = [
     { field: "id", header: "ID", sortable: false, width: "6%" },
-    { 
-      field: "driver.name", 
-      header: "Conductor", 
+    {
+      field: "driver.name",
+      header: "Conductor",
       sortable: false,
-      body: (rowData) => rowData.driver ? rowData.driver.name : '—'
+      body: (rowData) => (rowData.driver ? rowData.driver.name : "—"),
     },
-    { 
-      field: "reason", 
-      header: "Motivo", 
+    {
+      field: "reason",
+      header: "Motivo",
       sortable: false,
       body: (rowData) => (
-        <div style={{ wordBreak: 'break-word', whiteSpace: 'pre-wrap', maxWidth: '300px' }}>
+        <div
+          style={{
+            wordBreak: "break-word",
+            whiteSpace: "pre-wrap",
+            maxWidth: "300px",
+          }}
+        >
           {rowData.reason}
         </div>
-      )
+      ),
     },
     {
       field: "status",
@@ -157,7 +216,12 @@ export default function DisconnectsManagement() {
       field: "actions",
       header: "Acciones",
       body: (rowData) => {
-        if (rowData.status !== 'pending') return <span style={{ color: '#9e9e9e', fontSize: '0.85rem' }}>No disponible</span>;
+        if (rowData.status !== "pending")
+          return (
+            <span style={{ color: "#9e9e9e", fontSize: "0.85rem" }}>
+              No disponible
+            </span>
+          );
         return (
           <div style={{ display: "flex", gap: "0.5rem" }}>
             <Button
@@ -165,14 +229,14 @@ export default function DisconnectsManagement() {
               className="p-button-rounded p-button-success p-button-text"
               tooltip="Aprobar"
               tooltipOptions={{ position: "top" }}
-              onClick={() => confirmAction('approve', rowData)}
+              onClick={() => confirmAction("approve", rowData)}
             />
             <Button
               icon="pi pi-times"
               className="p-button-rounded p-button-danger p-button-text"
               tooltip="Rechazar"
               tooltipOptions={{ position: "top" }}
-              onClick={() => confirmAction('reject', rowData)}
+              onClick={() => confirmAction("reject", rowData)}
             />
           </div>
         );
@@ -185,35 +249,40 @@ export default function DisconnectsManagement() {
       <Toast ref={toast} position="top-right" />
       <ManagementPageHeader
         title="Registro de Desconexiones"
-        description="Historial de solicitudes de desconexión de conductores"
+        subtitle="Historial de solicitudes de desconexión de conductores"
         icon="pi pi-power-off"
       />
 
       <div className="dashboard-grid-premium">
         <StatCardPremium
-          title="Total Registros"
-          value={totalRecords}
+          title="Total Desconexiones"
+          value={globalStats.total}
           icon="pi pi-list"
           tone="blue"
+          loading={loading}
         />
         <StatCardPremium
           title="Total Aprobados"
           value={globalStats.aprobados}
           icon="pi pi-check-circle"
           tone="green"
+          loading={loading}
         />
         <StatCardPremium
           title="Total Rechazados"
           value={globalStats.rechazados}
           icon="pi pi-times-circle"
           tone="red"
+          loading={loading}
         />
       </div>
 
       <CustomDataTable
         title="Historial de Solicitudes"
         headerElements={
-          <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
+          <div
+            style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}
+          >
             <Dropdown
               value={statusFilter}
               options={statusOptions}
@@ -224,48 +293,84 @@ export default function DisconnectsManagement() {
               placeholder="Filtrar por Estado"
               className="w-full md:w-14rem"
             />
-            <Button
-              icon="pi pi-refresh"
-              onClick={() => { setPage(1); load(); }}
-              className="p-button-outlined"
-              tooltip="Actualizar Datos"
-            />
           </div>
+        }
+        rightElements={
+          <Button
+            icon="pi pi-refresh"
+            onClick={() => {
+              setPage(1);
+              loadData(1);
+            }}
+            className="p-button-outlined"
+            tooltip="Actualizar Datos"
+          />
         }
         value={requests}
         columns={columns}
-        loading={loading}
         lazy
+        globalFilter={globalFilterValue}
+        setGlobalFilter={(val) => {
+          setGlobalFilterValue(val);
+          setPage(1);
+        }}
+        loading={loading}
         totalRecords={totalRecords}
         onPageChange={(p) => setPage(p)}
         page={page}
         rows={10}
       />
 
-      <Dialog blockScroll
-        header={confirmDialog?.type === 'approve' ? 'Confirmar Aprobación' : 'Confirmar Rechazo'}
+      <Dialog
+        blockScroll
+        header={
+          confirmDialog?.type === "approve"
+            ? "Confirmar Aprobación"
+            : "Confirmar Rechazo"
+        }
         visible={!!confirmDialog}
-        style={{ width: '30rem' }}
+        style={{ width: "30rem" }}
         onHide={() => setConfirmDialog(null)}
       >
         {confirmDialog && (
-          <div style={{ padding: '1rem 0' }}>
+          <div style={{ padding: "1rem 0" }}>
             <p>
-              ¿Estás seguro de que deseas <strong>{confirmDialog.type === 'approve' ? 'aprobar' : 'rechazar'}</strong> la solicitud de desconexión del conductor <strong>{confirmDialog.record.driver?.name}</strong>?
+              ¿Estás seguro de que deseas{" "}
+              <strong>
+                {confirmDialog.type === "approve" ? "aprobar" : "rechazar"}
+              </strong>{" "}
+              la solicitud de desconexión del conductor{" "}
+              <strong>{confirmDialog.record.driver?.name}</strong>?
             </p>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '0.5rem', wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>
+            <p
+              style={{
+                color: "var(--text-secondary)",
+                fontSize: "0.9rem",
+                marginTop: "0.5rem",
+                wordBreak: "break-word",
+                whiteSpace: "pre-wrap",
+              }}
+            >
               Motivo: {confirmDialog.record.reason}
             </p>
           </div>
         )}
         <div className="premium-modal-footer">
-          <Button label="Cancelar" icon="pi pi-times" onClick={() => setConfirmDialog(null)} className="p-button-text" />
-          <Button 
-            label="Confirmar" 
-            icon="pi pi-check" 
-            onClick={() => handleAction(confirmDialog?.type, confirmDialog?.record)} 
-            severity={confirmDialog?.type === 'approve' ? 'success' : 'danger'}
-            autoFocus 
+          <Button
+            label="Cancelar"
+            icon="pi pi-times"
+            onClick={() => setConfirmDialog(null)}
+            className="p-button-text"
+          />
+          <Button
+            label="Confirmar"
+            icon="pi pi-check"
+            loading={isSubmitting}
+            onClick={() =>
+              handleAction(confirmDialog?.type, confirmDialog?.record)
+            }
+            severity={confirmDialog?.type === "approve" ? "success" : "danger"}
+            autoFocus
           />
         </div>
       </Dialog>

@@ -1,18 +1,19 @@
-import React from 'react';
-import { Dialog } from 'primereact/dialog';
-import { Button } from 'primereact/button';
+import React from "react";
+import { Dialog } from "primereact/dialog";
+import { Button } from "primereact/button";
 
-export function DetailModal({ 
-  header, 
-  visible, 
-  onHide, 
-  icon, 
-  title, 
-  subtitle, 
-  children 
+export function DetailModal({
+  header,
+  visible,
+  onHide,
+  icon,
+  title,
+  subtitle,
+  children,
 }) {
   return (
-    <Dialog blockScroll
+    <Dialog
+      blockScroll
       header={header}
       visible={visible}
       style={{ width: "30rem" }}
@@ -37,8 +38,8 @@ export function DetailModal({
               boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
             }}
           >
-            {typeof icon === 'string' && icon.startsWith('pi ') ? (
-              <i className={icon} style={{ fontSize: '1.5rem' }} />
+            {typeof icon === "string" && icon.startsWith("pi ") ? (
+              <i className={icon} style={{ fontSize: "1.5rem" }} />
             ) : (
               icon
             )}
@@ -74,19 +75,19 @@ export function DetailModal({
             borderBottom: "1px solid var(--border)",
             paddingTop: "1.2rem",
             paddingBottom: "1.2rem",
-            marginBottom: "1.2rem"
+            marginBottom: "1.2rem",
           }}
         >
           {children}
         </div>
-        
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <Button 
-            label="Cerrar" 
-            icon="pi pi-times" 
-            onClick={onHide} 
-            className="p-button-text p-button-secondary" 
-            style={{ color: 'var(--ink-600)', fontWeight: 'bold' }}
+
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <Button
+            label="Cerrar"
+            icon="pi pi-times"
+            onClick={onHide}
+            className="p-button-text p-button-secondary"
+            style={{ color: "var(--ink-600)", fontWeight: "bold" }}
           />
         </div>
       </div>
@@ -111,12 +112,7 @@ export function DetailField({ icon, label, children, value }) {
           gap: "0.5rem",
         }}
       >
-        {icon && (
-          <i
-            className={icon}
-            style={{ color: "var(--brand-500)" }}
-          />
-        )}
+        {icon && <i className={icon} style={{ color: "var(--brand-500)" }} />}
         {label}:
       </span>
       <div
@@ -125,7 +121,7 @@ export function DetailField({ icon, label, children, value }) {
           wordBreak: "break-word",
           marginLeft: "1rem",
           textAlign: "right",
-          fontWeight: "700"
+          fontWeight: "700",
         }}
       >
         {children !== undefined ? children : value}

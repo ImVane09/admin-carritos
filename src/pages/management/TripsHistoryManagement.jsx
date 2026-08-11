@@ -36,7 +36,7 @@ export default function TripsHistoryManagement() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [page, setPage] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
-  const [globalStats, setGlobalStats] = useState({ terminados: 0, cancelados: 0 });
+  const [globalStats, setGlobalStats] = useState({ terminados: 0, cancelados: 0, total: 0 });
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -61,6 +61,7 @@ export default function TripsHistoryManagement() {
           setGlobalStats({
             terminados: result.total_terminados || 0,
             cancelados: result.total_cancelados || 0,
+            total: result.total_registrados || 0
           });
         }
       } catch (err) {
@@ -96,7 +97,7 @@ export default function TripsHistoryManagement() {
               borderLeft: "3px solid #1565c0",
             }}
           >
-            {name}
+            <i className="pi pi-clock mr-1"></i> {name}
           </span>
         );
       case 2: // Aceptado (Accepted)
@@ -109,7 +110,7 @@ export default function TripsHistoryManagement() {
               borderLeft: "3px solid #00838f",
             }}
           >
-            {name}
+            <i className="pi pi-check mr-1"></i> {name}
           </span>
         );
       case 4: // Iniciado / En curso (Started)
@@ -122,7 +123,7 @@ export default function TripsHistoryManagement() {
               borderLeft: "3px solid #ef6c00",
             }}
           >
-            {name}
+            <i className="pi pi-car mr-1"></i> {name}
           </span>
         );
       case 3: // Finalizado (Finished)
@@ -135,7 +136,7 @@ export default function TripsHistoryManagement() {
               borderLeft: "3px solid #2e7d32",
             }}
           >
-            {name}
+            <i className="pi pi-check-circle mr-1"></i> {name}
           </span>
         );
       case 5: // Cancelado (Cancelled)
@@ -148,7 +149,7 @@ export default function TripsHistoryManagement() {
               borderLeft: "3px solid #c62828",
             }}
           >
-            {name}
+            <i className="pi pi-times-circle mr-1"></i> {name}
           </span>
         );
       default:
@@ -197,7 +198,7 @@ export default function TripsHistoryManagement() {
         />
 
         <div className="dashboard-grid-premium">
-          <StatCardPremium title="Total Viajes" value={totalRecords} icon="pi pi-history" tone="purple" subtitle="Registrados históricamente" loading={loading} />
+          <StatCardPremium title="Total Viajes" value={globalStats.total} icon="pi pi-history" tone="purple" subtitle="Registrados históricamente" loading={loading} />
           <StatCardPremium title="Terminados" value={globalStats.terminados} icon="pi pi-check-circle" tone="green" subtitle="En el sistema" loading={loading} />
           <StatCardPremium title="Cancelados" value={globalStats.cancelados} icon="pi pi-times-circle" tone="red" subtitle="En el sistema" loading={loading} />
         </div>

@@ -23,11 +23,14 @@ export default function AssignmentsManagement() {
   const [vehiclesState, setVehiclesState] = useState({ items: [], total: 0, loading: false, page: 1 });
   const [shiftsState, setShiftsState] = useState({ items: [], total: 0, loading: false, page: 1 });
   
+  const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [totalRecords, setTotalRecords] = useState(0);
   const [globalStats, setGlobalStats] = useState({ inactive: 0, deleted: 0 });
   const [page, setPage] = useState(1);
-  const rows = 10;
+  const [globalFilterValue, setGlobalFilterValue] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('all');
   
   // Modal states
   const [creating, setCreating] = useState(false);
@@ -37,20 +40,22 @@ export default function AssignmentsManagement() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [selected, setSelected] = useState(null);
 
-  const loadData = async () => {
-    setLoading(true);
+  const loadData = async (pageNumber = 1) => {
     try {
-      const [profilesData] = await Promise.all([
-        fetchAssignments({ page: page, per_page: rows })
-      ]);
+      const assignmentsData = await fetchAssignments({
+        search: globalFilterValue,
+        status: statusFilter,
+        page: pageNumber,
+        per_page: 15,
+      });
       
-      setProfiles(profilesData?.data || []);
-      setTotalRecords(profilesData?.total || 0);
-      if (profilesData?.total_inactivos !== undefined) {
+      setAssignments(assignmentsData?.data || []);
+      setTotalRecords(assignmentsData?.total || 0);
+      if (assignmentsData?.total_inactivos !== undefined) {
         setGlobalStats({
-          inactive: profilesData.total_inactivos || 0,
-          deleted: profilesData.total_eliminados || 0,
-          total: profilesData.total_registrados || 0,
+          inactive: assignmentsData.total_inactivos || 0,
+          deleted: assignmentsData.total_eliminados || 0,
+          total: assignmentsData.total_registrados || 0,
         });
       }
       
@@ -63,8 +68,8 @@ export default function AssignmentsManagement() {
   };
 
   useEffect(() => {
-    loadData();
-  }, [page]);
+    loadData(page);
+  }, [page, statusFilter, globalFilterValue]);
 
   const loadDriversPage = async (pageToLoad = 1) => {
     if (driversState.loading) return;
@@ -229,7 +234,7 @@ export default function AssignmentsManagement() {
       return;
     }
 
-    setLoading(true);
+    setIsSubmitting(true);
     try {
       if (editing) {
         await updateAssignment(form.id, {
@@ -248,7 +253,7 @@ export default function AssignmentsManagement() {
       console.error('Error guardando asignación:', err);
       toast.current?.show({ severity: 'error', summary: 'Error', detail: 'No se pudo guardar la asignación (Revisa que el conductor no tenga ya una).' });
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -258,7 +263,7 @@ export default function AssignmentsManagement() {
 
   const handleDelete = async () => {
     if (!deleteConfirm) return;
-    setLoading(true);
+    setIsSubmitting(true);
     try {
       await deleteAssignment(deleteConfirm.id);
       toast.current?.show({ severity: 'success', summary: 'Eliminada', detail: 'Asignación eliminada correctamente.' });
@@ -268,7 +273,7 @@ export default function AssignmentsManagement() {
       console.error('Error eliminando asignación:', err);
       toast.current?.show({ severity: 'error', summary: 'Error', detail: 'No se pudo eliminar la asignación.' });
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -340,13 +345,36 @@ export default function AssignmentsManagement() {
       </div>
 
         <CustomDataTable
-          value={profiles}
+          value={assignments}
           loading={loading}
+          dataKey="id"
+          lazy={true}
           page={page}
           totalRecords={totalRecords}
-          rows={rows}
-          onPageChange={setPage}
-          title="Asignaciones"
+          rows={15}
+          onPageChange={(newPage) => setPage(newPage)}
+          title="Listado de Asignaciones"
+          globalFilter={globalFilterValue}
+          setGlobalFilter={(val) => { setGlobalFilterValue(val); setPage(1); }}
+          headerElements={
+            <div style={{ display: 'flex', gap: '1rem', width: '100%', maxWidth: '300px' }}>
+              <Dropdown
+                value={statusFilter}
+                options={[
+                  { label: 'Todos', value: 'all' },
+                  { label: 'Activos', value: 'active' },
+                  { label: 'Inactivos', value: 'inactive' },
+                  { label: 'Eliminados', value: 'deleted' }
+                ]}
+                onChange={(e) => {
+                  setStatusFilter(e.value);
+                  setPage(1);
+                }}
+                placeholder="Filtrar por estado"
+                className="w-full"
+              />
+            </div>
+          }
           columns={[
             { field: 'id', header: 'ID' },
             { header: 'Conductor', body: driverBody },
@@ -435,7 +463,7 @@ export default function AssignmentsManagement() {
         </div>
         <div className="premium-modal-footer">
           <Button label="Cancelar" onClick={closeForm} className="p-button-text" />
-          <Button label={editing ? "Guardar" : "Crear"} onClick={handleSave} className="p-button-primary" />
+          <Button label={editing ? "Guardar" : "Crear"} onClick={handleSave} className="p-button-primary" loading={isSubmitting} />
         </div>
       </Dialog>
 
@@ -479,7 +507,7 @@ export default function AssignmentsManagement() {
         footer={
           <div>
             <Button label="No" icon="pi pi-times" onClick={() => setDeleteConfirm(null)} className="p-button-text" />
-            <Button label="Sí, Eliminar" icon="pi pi-check" onClick={handleDelete} className="p-button-danger" autoFocus />
+            <Button label="Sí, Eliminar" icon="pi pi-check" onClick={handleDelete} className="p-button-danger" autoFocus loading={isSubmitting} />
           </div>
         }
       >

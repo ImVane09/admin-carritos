@@ -256,6 +256,11 @@
   color: var(--info);
 }
 
+.status-info {
+  background-color: var(--info-light, #e0f2fe);
+  color: var(--info, #0ea5e9);
+}
+
 /* Empty states */
 .empty-state {
   text-align: center;

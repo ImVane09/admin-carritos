@@ -88,7 +88,7 @@ export default function DestinationsManagement() {
   const [statusFilter, setStatusFilter] = useState(null);
   const [page, setPage] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
-  const [globalStats, setGlobalStats] = useState({ inactive: 0, deleted: 0 });
+  const [globalStats, setGlobalStats] = useState({ inactive: 0, deleted: 0, total: 0 });
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -98,35 +98,38 @@ export default function DestinationsManagement() {
     return () => clearTimeout(handler);
   }, [query]);
 
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-      try {
-        const result = await fetchDestinations({ per_page: 10, page, search: debouncedQuery, status: statusFilter });
-        const dataArray = result?.data || [];
-        const normalized = dataArray.map(normalizeDestination).filter((destination) =>
-          Number.isFinite(destination.latitude) && Number.isFinite(destination.longitude)
-        );
+  const loadData = async (pageNumber = page) => {
+    setLoading(true);
 
-        setDestinations(normalized);
-        setTotalRecords(result?.total || 0);
-        if (result?.total_inactivos !== undefined) {
-          setGlobalStats({
-            inactive: result.total_inactivos || 0,
-            deleted: result.total_eliminados || 0,
-          });
-        }
-      } catch (err) {
-        console.error('Error al cargar destinos:', err);
-        setDestinations([]);
-        setTotalRecords(0);
-      } finally {
-        setLoading(false);
+    try {
+      const result = await fetchDestinations({ per_page: 10, page: pageNumber, search: debouncedQuery, status: statusFilter });
+      const dataArray = result?.data || [];
+      const normalized = dataArray.map(normalizeDestination).filter((destination) =>
+        Number.isFinite(destination.latitude) && Number.isFinite(destination.longitude)
+      );
+
+      setDestinations(normalized);
+      setTotalRecords(result?.total || 0);
+      if (result?.total_inactivos !== undefined) {
+        setGlobalStats({
+          inactive: result.total_inactivos || 0,
+          deleted: result.total_eliminados || 0,
+          total: result.total_registrados || 0,
+        });
       }
-    };
+    } catch (err) {
+      console.error('Error al cargar destinos:', err);
+      setDestinations([]);
+      setTotalRecords(0);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    load();
+  useEffect(() => {
+    loadData(page);
   }, [page, debouncedQuery, statusFilter]);
 
   const openCreate = () => {
@@ -190,7 +193,7 @@ export default function DestinationsManagement() {
       return;
     }
 
-    setLoading(true);
+    setIsSubmitting(true);
     try {
       const payload = {
         name: form.name.trim(),
@@ -203,17 +206,14 @@ export default function DestinationsManagement() {
       };
 
       if (editing) {
-        const response = await updateDestination(form.id, payload);
-        const normalized = normalizeDestination(response);
-        setDestinations(destinations.map((destination) => (destination.id === form.id ? normalized : destination)));
+        await updateDestination(form.id, payload);
         toast.current?.show({ severity: 'success', summary: 'Actualizado', detail: 'Destino actualizado correctamente' });
       } else {
-        const response = await createDestination(payload);
-        const normalized = normalizeDestination(response);
-        setDestinations([...destinations, normalized]);
+        await createDestination(payload);
         toast.current?.show({ severity: 'success', summary: 'Creado', detail: 'Destino creado correctamente' });
       }
       closeForm();
+      await loadData();
     } catch (err) {
       console.error(err);
       toast.current?.show({ 
@@ -222,7 +222,7 @@ export default function DestinationsManagement() {
         detail: err.response?.data?.error || err.response?.data?.message || 'Error al guardar destino.' 
       });
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -235,12 +235,12 @@ export default function DestinationsManagement() {
       return;
     }
 
-    setLoading(true);
+    setIsSubmitting(true);
     try {
       await deleteDestination(deleteConfirm.id);
-      setDestinations(destinations.filter((d) => d.id !== deleteConfirm.id));
       setDeleteConfirm(null);
       toast.current?.show({ severity: 'success', summary: 'Eliminado', detail: 'Destino eliminado correctamente' });
+      await loadData();
     } catch (err) {
       console.error(err);
       toast.current?.show({ 
@@ -249,7 +249,7 @@ export default function DestinationsManagement() {
         detail: err.response?.data?.error || 'No se pudo eliminar el destino.' 
       });
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -267,7 +267,7 @@ export default function DestinationsManagement() {
         />
 
         <div className="dashboard-grid-premium">
-          <StatCardPremium title="Total Destinos" value={totalRecords} icon="pi pi-map-marker" tone="blue" subtitle="Registrados en sistema" loading={loading} />
+          <StatCardPremium title="Total Destinos" value={globalStats.total} icon="pi pi-map-marker" tone="blue" subtitle="Registrados en sistema" loading={loading} />
           <StatCardPremium title="Inactivos" value={globalStats.inactive} icon="pi pi-compass" tone="amber" subtitle="En el sistema" loading={loading} />
           <StatCardPremium title="Eliminados" value={globalStats.deleted} icon="pi pi-trash" tone="red" subtitle="En el sistema" loading={loading} />
         </div>
@@ -446,7 +446,7 @@ export default function DestinationsManagement() {
           </div>
           <div className="premium-modal-footer">
             <Button label="Cancelar" onClick={closeForm} className="p-button-text" />
-            <Button label={creating ? 'Crear' : 'Guardar'} onClick={handleSave} className="p-button-primary" />
+            <Button label={creating ? 'Crear' : 'Guardar'} onClick={handleSave} className="p-button-primary" loading={isSubmitting} />
           </div>
         </Dialog>
 
@@ -459,7 +459,7 @@ export default function DestinationsManagement() {
           <p>¿Está seguro que desea eliminar este destino? Esta acción no se puede deshacer.</p>
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
             <Button label="Cancelar" onClick={() => setDeleteConfirm(null)} className="p-button-text" />
-            <Button label="Eliminar" onClick={confirmDelete} className="p-button-danger" />
+            <Button label="Eliminar" onClick={confirmDelete} className="p-button-danger" loading={isSubmitting} />
           </div>
         </Dialog>
       </div>

@@ -8,6 +8,7 @@ import { Dialog } from 'primereact/dialog';
 import { InputText } from 'primereact/inputtext';
 import { Toast } from 'primereact/toast';
 import { InputSwitch } from 'primereact/inputswitch';
+import { Dropdown } from 'primereact/dropdown';
 import { fetchShifts, createShift, updateShift, deleteShift } from '../../services/adminService';
 import StatCardPremium from '../../components/StatCardPremium';
 
@@ -21,7 +22,9 @@ export default function ShiftsManagement() {
   const [totalRecords, setTotalRecords] = useState(0);
   const [globalStats, setGlobalStats] = useState({ inactive: 0, deleted: 0 });
   const [page, setPage] = useState(1);
-  const rows = 10;
+  const [globalFilterValue, setGlobalFilterValue] = useState("");
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Modal states
   const [creating, setCreating] = useState(false);
@@ -31,10 +34,14 @@ export default function ShiftsManagement() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [selected, setSelected] = useState(null);
 
-  const loadShifts = async () => {
-    setLoading(true);
+  const loadData = async (pageNumber = 1) => {
     try {
-      const data = await fetchShifts({ page: page, per_page: rows });
+      const data = await fetchShifts({ 
+        search: globalFilterValue, 
+        status: statusFilter, 
+        page: pageNumber, 
+        per_page: 15 
+      });
       setShifts(data.data || []);
       setTotalRecords(data.total || 0);
       if (data.total_inactivos !== undefined) {
@@ -54,8 +61,8 @@ export default function ShiftsManagement() {
   };
 
   useEffect(() => {
-    loadShifts();
-  }, [page]);
+    loadData(page);
+  }, [page, statusFilter, globalFilterValue]);
 
   const openCreate = () => {
     setForm(EMPTY_FORM);
@@ -92,7 +99,7 @@ export default function ShiftsManagement() {
       return;
     }
 
-    setLoading(true);
+    setIsSubmitting(true);
     try {
       if (editing) {
         await updateShift(form.id, form);
@@ -102,12 +109,12 @@ export default function ShiftsManagement() {
         toast.current?.show({ severity: 'success', summary: 'Creado', detail: 'Horario creado correctamente.' });
       }
       closeForm();
-      loadShifts();
+      await loadData(page);
     } catch (err) {
       console.error('Error guardando horario:', err);
       toast.current?.show({ severity: 'error', summary: 'Error', detail: 'No se pudo guardar el horario.' });
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -117,17 +124,17 @@ export default function ShiftsManagement() {
 
   const handleDelete = async () => {
     if (!deleteConfirm) return;
-    setLoading(true);
+    setIsSubmitting(true);
     try {
       await deleteShift(deleteConfirm.id);
       toast.current?.show({ severity: 'success', summary: 'Eliminado', detail: 'Horario eliminado correctamente.' });
       setDeleteConfirm(null);
-      loadShifts();
+      await loadData(page);
     } catch (err) {
       console.error('Error eliminando horario:', err);
       toast.current?.show({ severity: 'error', summary: 'Error', detail: 'No se pudo eliminar el horario.' });
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -189,11 +196,34 @@ export default function ShiftsManagement() {
         <CustomDataTable
           value={shifts}
           loading={loading}
+          dataKey="id"
+          lazy={true}
           page={page}
           totalRecords={totalRecords}
-          rows={rows}
-          onPageChange={setPage}
-          title="Horarios"
+          rows={15}
+          onPageChange={(newPage) => setPage(newPage)}
+          title="Listado de Horarios"
+          globalFilter={globalFilterValue}
+          setGlobalFilter={(val) => { setGlobalFilterValue(val); setPage(1); }}
+          headerElements={
+            <div style={{ display: 'flex', gap: '1rem', width: '100%', maxWidth: '300px' }}>
+              <Dropdown
+                value={statusFilter}
+                options={[
+                  { label: 'Todos', value: 'all' },
+                  { label: 'Activos', value: 'active' },
+                  { label: 'Inactivos', value: 'inactive' },
+                  { label: 'Eliminados', value: 'deleted' }
+                ]}
+                onChange={(e) => {
+                  setStatusFilter(e.value);
+                  setPage(1);
+                }}
+                placeholder="Filtrar por estado"
+                className="w-full"
+              />
+            </div>
+          }
           columns={[
             { field: 'id', header: 'ID' },
             { field: 'name', header: 'Nombre del Turno' },
@@ -249,7 +279,7 @@ export default function ShiftsManagement() {
 
         <div className="premium-modal-footer">
           <Button label="Cancelar" onClick={closeForm} className="p-button-text" />
-          <Button label={editing ? "Guardar" : "Crear"} onClick={handleSave} className="p-button-primary" />
+          <Button label={editing ? 'Guardar' : 'Crear'} onClick={handleSave} className="p-button-primary" loading={isSubmitting} />
         </div>
       </Dialog>
 
@@ -267,7 +297,7 @@ export default function ShiftsManagement() {
             <DetailField icon="pi pi-hourglass" label="Hora de Inicio">
               {selected.start_time}
             </DetailField>
-            <DetailField icon="pi pi-hourglass-empty" label="Hora de Fin">
+            <DetailField icon="pi pi-clock" label="Hora de Fin">
               {selected.end_time}
             </DetailField>
             <DetailField icon="pi pi-info-circle" label="Estado">
@@ -293,7 +323,7 @@ export default function ShiftsManagement() {
         footer={
           <div>
             <Button label="No" icon="pi pi-times" onClick={() => setDeleteConfirm(null)} className="p-button-text" />
-            <Button label="Sí, Eliminar" icon="pi pi-check" onClick={handleDelete} className="p-button-danger" autoFocus />
+            <Button label="Sí, Eliminar" icon="pi pi-check" onClick={handleDelete} className="p-button-danger" autoFocus loading={isSubmitting} />
           </div>
         }
       >

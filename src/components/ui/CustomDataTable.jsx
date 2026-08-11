@@ -19,6 +19,7 @@ import { Button } from "primereact/button";
  * @param {function} setGlobalFilter - Setter para búsqueda
  * @param {boolean} lazy - Si es lazy load
  * @param {ReactNode} headerElements - Elementos extra a la izquierda del buscador
+ * @param {ReactNode} rightElements - Elementos extra a la derecha del buscador
  */
 export default function CustomDataTable({
   value,
@@ -34,6 +35,7 @@ export default function CustomDataTable({
   lazy = true,
   searchPlaceholder = "Buscar...",
   headerElements = null,
+  rightElements = null,
   onExport = null,
   showExport = false
 }) {
@@ -63,6 +65,7 @@ export default function CustomDataTable({
               />
             </span>
           )}
+          {rightElements}
           {showExport && (
             <Button
               type="button"
