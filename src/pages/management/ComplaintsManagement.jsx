@@ -217,11 +217,45 @@ export default function ComplaintsManagement() {
               <InputTextarea value={selectedComplaint.description || ''} readOnly rows={4} autoResize />
             </div>
             
-            {selectedComplaint.trip_id && (
-              <div className="field">
-                <label className="font-bold">Viaje Asociado</label>
-                <InputText value={`ID del Viaje: #${selectedComplaint.trip_id}`} readOnly />
-              </div>
+            {selectedComplaint.trip && (
+              <>
+                <div className="surface-border border-top-1 my-3"></div>
+                <div className="text-xl font-bold mb-3 text-primary">Información del Viaje Asociado</div>
+                
+                <div className="flex flex-column gap-3 surface-ground p-3 border-round">
+                  <div className="flex align-items-center gap-2">
+                    <i className="pi pi-map-marker text-primary text-xl"></i>
+                    <div>
+                      <div className="font-bold">Ruta (Viaje #{selectedComplaint.trip.id})</div>
+                      <div className="text-sm text-color-secondary">
+                        {selectedComplaint.trip.origin_address || 'Ubicación Actual'} <i className="pi pi-arrow-right mx-1 text-xs"></i> {selectedComplaint.trip.destination_address || 'Destino'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {selectedComplaint.trip.driver && (
+                    <div className="flex align-items-center gap-2">
+                      <i className="pi pi-id-card text-primary text-xl"></i>
+                      <div>
+                        <div className="font-bold">Conductor</div>
+                        <div className="text-sm text-color-secondary">{selectedComplaint.trip.driver.name}</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedComplaint.trip.driver?.assignment?.vehicle && (
+                    <div className="flex align-items-center gap-2">
+                      <i className="pi pi-car text-primary text-xl"></i>
+                      <div>
+                        <div className="font-bold">Vehículo</div>
+                        <div className="text-sm text-color-secondary">
+                          {selectedComplaint.trip.driver.assignment.vehicle.brand} ({selectedComplaint.trip.driver.assignment.vehicle.color}) - <span className="font-bold">{selectedComplaint.trip.driver.assignment.vehicle.plate}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </>
             )}
 
             <div className="field">
