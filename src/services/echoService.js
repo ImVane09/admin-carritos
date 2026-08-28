@@ -19,13 +19,17 @@ export const createEcho = (token) => {
     console.error('Error al parsear el host de VITE_API_URL, usando localhost por defecto:', error);
   }
 
+  const reverbKey = import.meta.env.VITE_REVERB_APP_KEY || 'app-key';
+  const reverbPort = Number(import.meta.env.VITE_REVERB_PORT || 8080);
+  const forceTLS = (import.meta.env.VITE_REVERB_SCHEME || 'http') === 'https';
+
   return new Echo({
     broadcaster: 'reverb',
-    key: 'app-key',
+    key: reverbKey,
     wsHost: host,
-    wsPort: 8080,
-    wssPort: 8080,
-    forceTLS: false,
+    wsPort: reverbPort,
+    wssPort: reverbPort,
+    forceTLS,
     enabledTransports: ['ws', 'wss'],
     authEndpoint: `${apiBaseUrl}/broadcasting/auth`,
     auth: {

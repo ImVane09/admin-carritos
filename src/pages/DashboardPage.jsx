@@ -1,25 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
 import { Card } from "primereact/card";
-import { Tag } from "primereact/tag";
-import { ProgressSpinner } from "primereact/progressspinner";
 import {
   fetchDestinations,
   fetchDrivers,
   fetchAllDrivers,
   fetchDashboardStats,
-  fetchHourlyReport,
   fetchShifts,
   approveDriverDisconnect,
   rejectDriverDisconnect,
 } from "../services/adminService";
 import DashboardLiveMap from "../components/DashboardLiveMap";
 import { createEcho } from "../services/echoService";
-import { Chart } from "primereact/chart";
-import { Dropdown } from "primereact/dropdown";
 
 const CAMPUS_CENTER = [-0.9525, -80.745];
 
-import StatCardPremium from "../components/StatCardPremium";
 import DashboardStatsGrid from "../components/dashboard/DashboardStatsGrid";
 import DashboardSidePanel from "../components/dashboard/DashboardSidePanel";
 
@@ -32,13 +26,14 @@ export default function DashboardPage() {
     active: 0,
     completed: 0,
     destinations: 0,
+    complaints: 0,
+    pending_complaints: 0,
   });
   const [drivers, setDrivers] = useState([]);
   const [approvedDisconnects, setApprovedDisconnects] = useState(new Set());
   const [allDrivers, setAllDrivers] = useState([]);
   const [destinations, setDestinations] = useState([]);
   const [disconnectRequests, setDisconnectRequests] = useState([]);
-  const [hourlyData, setHourlyData] = useState(null);
   const [cancellations, setCancellations] = useState([]);
   const [waitTimes, setWaitTimes] = useState([]);
   const [lastUpdate, setLastUpdate] = useState(null);
@@ -85,14 +80,13 @@ export default function DashboardPage() {
     const loadDynamicData = async (isInitial = false) => {
       if (isInitial) setStatsLoading(true);
       try {
-        const [dashboardStats, driversList, allDriversList, hourlyReport, shiftsList] =
-          await Promise.all([
-            fetchDashboardStats(),
-            fetchDrivers(),
-            fetchAllDrivers(),
-            fetchHourlyReport(),
-            fetchShifts({ status: 'active' })
-          ]);
+      const [dashboardStats, driversList, allDriversList, shiftsList] =
+        await Promise.all([
+          fetchDashboardStats(),
+          fetchDrivers(),
+          fetchAllDrivers(),
+          fetchShifts({ status: 'active' })
+        ]);
 
         setShifts(shiftsList?.data || shiftsList || []);
 
@@ -130,22 +124,6 @@ export default function DashboardPage() {
         setWaitTimes(dashboardStats.wait_times || []);
         setApprovedDisconnects(new Set(dashboardStats.approved_disconnects || []));
 
-        if (hourlyReport) {
-          setHourlyData({
-            labels: hourlyReport.labels || [],
-            datasets: [
-              {
-                label: "Viajes Completados",
-                data: hourlyReport.data || [],
-                fill: true,
-                borderColor: "#1E88E5",
-                tension: 0.4,
-                backgroundColor: "rgba(30, 136, 229, 0.1)",
-              },
-            ],
-          });
-        }
-
         setLastUpdate(new Date());
       } catch (error) {
         console.error(
@@ -158,6 +136,42 @@ export default function DashboardPage() {
     };
 
     loadDynamicData(true);
+
+    const handleDisconnectUpdated = (event) => {
+      const driverId = event.detail?.driverId;
+      const status = event.detail?.status;
+      if (!driverId) return;
+
+      setDisconnectRequests((previousRequests) =>
+        previousRequests.filter((request) => request.driverId !== driverId),
+      );
+      if (status === 'approved') {
+        // Conservarlo en la mini tabla como constancia de que quedó
+        // desconectado por aprobación administrativa.
+        setAllDrivers((previousDrivers) =>
+          previousDrivers.map((driver) =>
+            driver.id === driverId
+              ? { ...driver, is_disconnect_approved: true }
+              : driver,
+          ),
+        );
+        setApprovedDisconnects((previousIds) =>
+          new Set([...previousIds, driverId]),
+        );
+        setDrivers((previousDrivers) =>
+          previousDrivers.map((driver) =>
+            driver.id === driverId ? { ...driver, is_online: false } : driver,
+          ),
+        );
+      } else if (status === 'rejected') {
+        // Una solicitud rechazada ya no debe quedar en el listado de
+        // solicitudes/desconexiones resueltas del dashboard.
+        setAllDrivers((previousDrivers) =>
+          previousDrivers.filter((driver) => driver.id !== driverId),
+        );
+      }
+    };
+    window.addEventListener('disconnect-request-updated', handleDisconnectUpdated);
 
     // 3. Inicializar WebSocket para actualización de GPS en vivo
     const token = localStorage.getItem("admin_token");
@@ -207,32 +221,17 @@ export default function DashboardPage() {
         const adminChannel = echoInstance.private("admin.live_tracking");
         adminChannel.listen(".DriverGlobalLocationUpdated", (e) => handleDriverLocationUpdate(e, e.is_in_event || false));
 
-        const statsChannel = echoInstance.channel("dashboard.stats");
+        const statsChannel = echoInstance.private("dashboard.stats");
         statsChannel.listen(".DashboardStatsUpdated", (event) => {
           if (event.stats) setStats(event.stats);
           if (event.stats?.cancellations)
             setCancellations(event.stats.cancellations);
           if (event.stats?.wait_times) setWaitTimes(event.stats.wait_times);
 
-          if (event.hourly) {
-            setHourlyData({
-              labels: event.hourly.labels || [],
-              datasets: [
-                {
-                  label: "Viajes Completados",
-                  data: event.hourly.data || [],
-                  fill: true,
-                  borderColor: "#1E88E5",
-                  tension: 0.4,
-                  backgroundColor: "rgba(30, 136, 229, 0.1)",
-                },
-              ],
-            });
-          }
           setLastUpdate(new Date());
         });
 
-        const liveChannel = echoInstance.channel("drivers.live");
+        const liveChannel = echoInstance.private("drivers.live");
         liveChannel.listen(".DriverOffline", (event) => {
           setDrivers((previousDrivers) => {
             return previousDrivers.map((driverItem) =>
@@ -241,31 +240,6 @@ export default function DashboardPage() {
           });
         });
 
-        // Escuchar cambios en las estadísticas del dashboard
-        const publicChannel = echoInstance.channel("dashboard.stats");
-        publicChannel.listen(".DashboardStatsUpdated", (event) => {
-          if (event.stats) {
-            setStats(event.stats);
-            setCancellations(event.stats.cancellations || []);
-            setWaitTimes(event.stats.wait_times || []);
-          }
-          if (event.hourly) {
-            setHourlyData({
-              labels: event.hourly.labels || [],
-              datasets: [
-                {
-                  label: "Viajes Completados",
-                  data: event.hourly.data || [],
-                  fill: true,
-                  borderColor: "#1E88E5",
-                  tension: 0.4,
-                  backgroundColor: "rgba(30, 136, 229, 0.1)",
-                },
-              ],
-            });
-          }
-          setLastUpdate(new Date());
-        });
       } catch (wsError) {
         console.error(
           "Error al inicializar la conexión de WebSockets:",
@@ -291,6 +265,7 @@ export default function DashboardPage() {
     }
 
     return () => {
+      window.removeEventListener('disconnect-request-updated', handleDisconnectUpdated);
       if (echoInstance) {
         echoInstance.disconnect();
       }
@@ -315,6 +290,10 @@ export default function DashboardPage() {
     const req = disconnectRequests[requestIndex];
     try {
       await approveDriverDisconnect(req.driverId);
+      window.dispatchEvent(new Event('disconnect-notification-dismissed'));
+      window.dispatchEvent(new CustomEvent('disconnect-request-updated', {
+        detail: { driverId: req.driverId, status: 'approved' },
+      }));
       setApprovedDisconnects((prev) => new Set([...prev, req.driverId]));
       setDisconnectRequests((prev) =>
         prev.filter((_, i) => i !== requestIndex),
@@ -328,6 +307,10 @@ export default function DashboardPage() {
     const req = disconnectRequests[requestIndex];
     try {
       await rejectDriverDisconnect(req.driverId);
+      window.dispatchEvent(new Event('disconnect-notification-dismissed'));
+      window.dispatchEvent(new CustomEvent('disconnect-request-updated', {
+        detail: { driverId: req.driverId, status: 'rejected' },
+      }));
       setDisconnectRequests((prev) =>
         prev.filter((_, i) => i !== requestIndex),
       );

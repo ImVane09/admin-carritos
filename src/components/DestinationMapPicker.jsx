@@ -29,6 +29,9 @@ export default function DestinationMapPicker({ value, destinations = [], onChang
   const markersRef = useRef([]);
   const selectedMarkerRef = useRef(null);
   const onChangeRef = useRef(onChange);
+  const initialCenterRef = useRef(
+    Array.isArray(center) && center.length === 2 ? center : DEFAULT_CENTER,
+  );
 
   // Keep ref updated without triggering re-renders
   useEffect(() => {
@@ -41,15 +44,14 @@ export default function DestinationMapPicker({ value, destinations = [], onChang
       return;
     }
 
-    const initialCenter = Array.isArray(center) && center.length === 2 ? center : DEFAULT_CENTER;
     const map = L.map(mapElementRef.current, {
       zoomControl: true,
       scrollWheelZoom: true,
       doubleClickZoom: false,
-    }).setView(initialCenter, 16);
+    }).setView(initialCenterRef.current, 16);
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; CartoDB',
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     }).addTo(map);
 
     map.on('click', (event) => {

@@ -1,4 +1,3 @@
-import React from 'react';
 import { Tag } from "primereact/tag";
 import { Dropdown } from "primereact/dropdown";
 import { Button } from "primereact/button";

@@ -1,7 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import ManagementPageHeader from "../../components/management/ManagementPageHeader";
 import { Button } from "primereact/button";
-import { Card } from "primereact/card";
 import CustomDataTable from "../../components/ui/CustomDataTable";
 import { Toast } from "primereact/toast";
 import { Dropdown } from "primereact/dropdown";
@@ -49,7 +48,7 @@ export default function DisconnectsManagement() {
     { label: "Rechazados", value: "rejected" },
   ];
 
-  const loadData = async (pageNumber = 1) => {
+  const loadData = useCallback(async (pageNumber = 1) => {
     setLoading(true);
     try {
       const params = { search: globalFilterValue, per_page: 10, page: pageNumber };
@@ -78,17 +77,32 @@ export default function DisconnectsManagement() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [globalFilterValue, statusFilter]);
 
   useEffect(() => {
-    loadData(page);
-  }, [page, statusFilter, globalFilterValue]);
+    const initialLoad = window.setTimeout(() => loadData(page), 0);
+
+    const handleDisconnectUpdated = () => {
+      setPage(1);
+      loadData(1);
+    };
+    window.addEventListener("disconnect-request-updated", handleDisconnectUpdated);
+
+    return () => {
+      window.clearTimeout(initialLoad);
+      window.removeEventListener("disconnect-request-updated", handleDisconnectUpdated);
+    };
+  }, [page, loadData]);
 
   const handleAction = async (actionType, record) => {
     setIsSubmitting(true);
     try {
       if (actionType === "approve") {
         await approveDriverDisconnect(record.driver_id);
+        window.dispatchEvent(new Event("disconnect-notification-dismissed"));
+        window.dispatchEvent(new CustomEvent("disconnect-request-updated", {
+          detail: { driverId: record.driver_id, status: "approved" },
+        }));
         toast.current?.show({
           severity: "success",
           summary: "Éxito",
@@ -96,6 +110,10 @@ export default function DisconnectsManagement() {
         });
       } else {
         await rejectDriverDisconnect(record.driver_id);
+        window.dispatchEvent(new Event("disconnect-notification-dismissed"));
+        window.dispatchEvent(new CustomEvent("disconnect-request-updated", {
+          detail: { driverId: record.driver_id, status: "rejected" },
+        }));
         toast.current?.show({
           severity: "info",
           summary: "Rechazado",
@@ -105,6 +123,7 @@ export default function DisconnectsManagement() {
       setConfirmDialog(null);
       await loadData(1);
     } catch (error) {
+      console.error("Error al procesar la desconexión:", error);
       toast.current?.show({
         severity: "error",
         summary: "Error",

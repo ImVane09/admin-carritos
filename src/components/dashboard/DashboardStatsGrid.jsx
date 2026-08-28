@@ -1,4 +1,3 @@
-import React from 'react';
 import StatCardPremium from '../StatCardPremium';
 
 export default function DashboardStatsGrid({
@@ -80,6 +79,14 @@ export default function DashboardStatsGrid({
         icon="pi pi-clock"
         tone="amber"
         subtitle="Tiempo de atención"
+        loading={statsLoading}
+      />
+      <StatCardPremium
+        title="Quejas Pendientes"
+        value={stats.pending_complaints}
+        icon="pi pi-exclamation-circle"
+        tone="red"
+        subtitle={`${stats.complaints ?? 0} registradas`}
         loading={statsLoading}
       />
     </div>

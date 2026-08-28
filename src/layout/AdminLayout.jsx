@@ -5,6 +5,7 @@ import { Button } from 'primereact/button';
 import { Toast } from 'primereact/toast';
 import { approveDriverDisconnect, rejectDriverDisconnect } from '../services/adminService';
 import { useAuth } from '../context/AuthContext';
+import { createEcho } from '../services/echoService';
 
 const menu = [
   { section: 'Monitoreo' },
@@ -34,11 +35,43 @@ export default function AdminLayout() {
   const [isManagementOpen, setIsManagementOpen] = useState(true);
   const toast = useRef(null);
 
+  async function handleApproveDisconnect(driverId) {
+    try {
+      await approveDriverDisconnect(driverId);
+      window.dispatchEvent(new CustomEvent('disconnect-request-updated', {
+        detail: { driverId, status: 'approved' },
+      }));
+      toast.current?.clear();
+      toast.current?.show({ severity: 'success', summary: 'Aprobado', detail: 'Conductor desconectado exitosamente.', life: 3000 });
+    } catch (err) {
+      console.error(err);
+      toast.current?.show({ severity: 'error', summary: 'Error', detail: 'No se pudo aprobar la desconexión.', life: 3000 });
+    }
+  }
+
+  async function handleRejectDisconnect(driverId) {
+    try {
+      await rejectDriverDisconnect(driverId);
+      window.dispatchEvent(new CustomEvent('disconnect-request-updated', {
+        detail: { driverId, status: 'rejected' },
+      }));
+      toast.current?.clear();
+      toast.current?.show({ severity: 'info', summary: 'Rechazado', detail: 'Desconexión rechazada.', life: 3000 });
+    } catch (err) {
+      console.error(err);
+      toast.current?.show({ severity: 'error', summary: 'Error', detail: 'No se pudo rechazar la desconexión.', life: 3000 });
+    }
+  }
+
   useEffect(() => {
-    if (!user || !window.Echo) return;
+    if (!user) return;
+
+    const token = user.token || localStorage.getItem('admin_token');
+    if (!token) return;
 
     // Listen for disconnect requests
-    const channel = window.Echo.private('admin.notifications');
+    const echo = createEcho(token);
+    const channel = echo.private('admin.notifications');
     channel.listen('.driver.disconnect.requested', (data) => {
       // data: { driverId, driverName, reason }
       toast.current?.show({
@@ -59,33 +92,28 @@ export default function AdminLayout() {
     });
 
     return () => {
-      window.Echo.leave('admin.notifications');
+      echo.leave('admin.notifications');
+      echo.disconnect();
     };
   }, [user]);
 
-  const handleApproveDisconnect = async (driverId) => {
-    try {
-      await approveDriverDisconnect(driverId);
-      toast.current?.show({ severity: 'success', summary: 'Aprobado', detail: 'Conductor desconectado exitosamente.', life: 3000 });
-      // clear any warn toast? By default primeReact toasts stack or we can clear
+  useEffect(() => {
+    const clearDisconnectNotification = () => {
       toast.current?.clear();
-      toast.current?.show({ severity: 'success', summary: 'Aprobado', detail: 'Conductor desconectado exitosamente.', life: 3000 });
-    } catch (err) {
-      console.error(err);
-      toast.current?.show({ severity: 'error', summary: 'Error', detail: 'No se pudo aprobar la desconexión.', life: 3000 });
-    }
-  };
+    };
 
-  const handleRejectDisconnect = async (driverId) => {
-    try {
-      await rejectDriverDisconnect(driverId);
-      toast.current?.clear();
-      toast.current?.show({ severity: 'info', summary: 'Rechazado', detail: 'Desconexión rechazada.', life: 3000 });
-    } catch (err) {
-      console.error(err);
-      toast.current?.show({ severity: 'error', summary: 'Error', detail: 'No se pudo rechazar la desconexión.', life: 3000 });
-    }
-  };
+    window.addEventListener(
+      'disconnect-notification-dismissed',
+      clearDisconnectNotification,
+    );
+
+    return () => {
+      window.removeEventListener(
+        'disconnect-notification-dismissed',
+        clearDisconnectNotification,
+      );
+    };
+  }, []);
 
   const onLogout = () => {
     logout();
