@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import ManagementPageHeader from "../../components/management/ManagementPageHeader";
 import { Button } from 'primereact/button';
 import { Card } from 'primereact/card';
 import { Column } from 'primereact/column';
@@ -6,54 +7,77 @@ import { DataTable } from 'primereact/datatable';
 import { Dialog } from 'primereact/dialog';
 import { InputText } from 'primereact/inputtext';
 import { InputSwitch } from 'primereact/inputswitch';
+import { Dropdown } from 'primereact/dropdown';
 import { Toast } from 'primereact/toast';
 import { fetchUsers, registerPassenger, updateUser, deleteUser, toggleUserStatus, restoreUser } from '../../services/adminService';
 import { ProgressSpinner } from 'primereact/progressspinner';
 import { useRef } from 'react';
+import StatCardPremium from '../../components/StatCardPremium';
+import CustomDataTable from "../../components/ui/CustomDataTable";
+import ManagementActionButtons from "../../components/management/ManagementActionButtons";
+
 
 export default function PassengersManagement() {
   const toast = useRef(null);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [page, setPage] = useState(1);
+  const [totalRecords, setTotalRecords] = useState(0);
   const [selected, setSelected] = useState(null);
   const [editing, setEditing] = useState(null);
   const [editForm, setEditForm] = useState({});
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [creating, setCreating] = useState(false);
   const [createForm, setCreateForm] = useState({ name: '', email: '', password: '', is_active: true });
+  const [globalStats, setGlobalStats] = useState({ inactive: 0, deleted: 0 });
 
   useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      try {
-        const result = await fetchUsers();
-        const passengers = result.filter(u => (u.role || u.rol?.rol_name || 'pasajero').toLowerCase() === 'pasajero');
-        setUsers(passengers);
-      } catch (err) {
-        console.error('Error al cargar pasajeros:', err);
-        toast.current?.show({
-          severity: 'error',
-          summary: 'Error',
-          detail: 'No se pudieron cargar los pasajeros desde el servidor.'
-        });
-        setUsers([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-  }, []);
+    const handler = setTimeout(() => {
+      setDebouncedQuery(query);
+      setPage(1);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [query]);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return users;
-    return users.filter((u) => `${u.name} ${u.email}`.toLowerCase().includes(q));
-  }, [users, query]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const loadData = async (pageNumber = page) => {
+    setLoading(true);
+    try {
+      const result = await fetchUsers({ per_page: 10, page: pageNumber, search: debouncedQuery, role_id: 2, status: statusFilter });
+      setUsers(result?.data || []);
+      setTotalRecords(result?.total || 0);
+      if (result?.total_inactivos !== undefined) {
+        setGlobalStats({
+          inactive: result.total_inactivos || 0,
+          deleted: result.total_eliminados || 0,
+          total: result.total_registrados || 0,
+        });
+      }
+    } catch (err) {
+      console.error('Error al cargar pasajeros:', err);
+      toast.current?.show({
+        severity: 'error',
+        summary: 'Error',
+        detail: 'No se pudieron cargar los pasajeros desde el servidor.'
+      });
+      setUsers([]);
+      setTotalRecords(0);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData(page);
+  }, [page, debouncedQuery, statusFilter]);
 
   const statusBody = (row) => {
     if (row.deleted_at) {
-      return <span className="status-badge status-inactivo" style={{ backgroundColor: '#e57373', color: '#fff' }}>Suspendido</span>;
+      return <span className="status-badge status-inactivo" style={{ backgroundColor: '#e57373', color: '#fff' }}>Eliminado</span>;
     }
     return (
       <span className={`status-badge status-${row.is_active ? 'activo' : 'inactivo'}`}>
@@ -73,9 +97,8 @@ export default function PassengersManagement() {
       return;
     }
 
-    setLoading(true);
+    setIsSubmitting(true);
     try {
-      // 1. Guardar cambios en el backend (nombre, correo y opcionalmente contraseña)
       const payload = {
         name: editForm.name,
         email: editForm.email
@@ -83,31 +106,21 @@ export default function PassengersManagement() {
       if (editForm.password?.trim()) {
         payload.password = editForm.password.trim();
       }
-      const response = await updateUser(editForm.id, payload);
+      await updateUser(editForm.id, payload);
 
-      // 2. Si el estado "activo" cambió, ejecutar el toggle
       const original = users.find(u => u.id === editForm.id);
-      let activeState = !!editForm.is_active;
       if (original && (!!original.is_active !== !!editForm.is_active)) {
-        const toggleRes = await toggleUserStatus(editForm.id);
-        if (toggleRes && toggleRes.user) {
-          activeState = !!toggleRes.user.is_active;
-        }
+        await toggleUserStatus(editForm.id);
       }
-
-      const merged = { 
-        ...editForm, 
-        ...response.user,
-        is_active: activeState
-      };
-      setUsers(users.map(u => u.id === editForm.id ? merged : u));
+      
       setEditing(null);
       toast.current?.show({ severity: 'success', summary: 'Éxito', detail: 'Pasajero actualizado correctamente' });
+      await loadData();
     } catch (err) {
       console.error(err);
       toast.current?.show({ severity: 'error', summary: 'Error al actualizar', detail: err.response?.data?.error || 'Error en el servidor' });
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -116,31 +129,31 @@ export default function PassengersManagement() {
   };
 
   const confirmDelete = async () => {
-    setLoading(true);
+    setIsSubmitting(true);
     try {
       await deleteUser(deleteConfirm);
-      setUsers(users.map(u => u.id === deleteConfirm ? { ...u, deleted_at: new Date().toISOString() } : u));
       setDeleteConfirm(null);
-      toast.current?.show({ severity: 'success', summary: 'Suspendido', detail: 'Pasajero suspendido correctamente' });
+      toast.current?.show({ severity: 'success', summary: 'Eliminado', detail: 'Pasajero eliminado correctamente' });
+      await loadData();
     } catch (err) {
       console.error(err);
-      toast.current?.show({ severity: 'error', summary: 'Error', detail: err.response?.data?.error || 'No se pudo suspender al pasajero' });
+      toast.current?.show({ severity: 'error', summary: 'Error', detail: err.response?.data?.error || 'No se pudo eliminar al pasajero' });
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
   const handleRestore = async (row) => {
-    setLoading(true);
+    setIsSubmitting(true);
     try {
       await restoreUser(row.id);
-      setUsers(users.map(u => u.id === row.id ? { ...u, deleted_at: null } : u));
       toast.current?.show({ severity: 'success', summary: 'Restaurado', detail: 'Pasajero restaurado correctamente' });
+      await loadData();
     } catch (err) {
       console.error(err);
       toast.current?.show({ severity: 'error', summary: 'Error', detail: err.response?.data?.error || 'No se pudo restaurar al pasajero' });
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -159,10 +172,9 @@ export default function PassengersManagement() {
       return;
     }
 
-    setLoading(true);
+    setIsSubmitting(true);
     try {
-      // Registramos usando el endpoint público /api/register con role_id = 2 (pasajero)
-      const response = await registerPassenger({
+      await registerPassenger({
         name: createForm.name,
         email: createForm.email,
         password: createForm.password,
@@ -170,19 +182,14 @@ export default function PassengersManagement() {
         role_id: 2
       });
 
-      const merged = {
-        ...response.user,
-        created_at: new Date().toISOString()
-      };
-
-      setUsers([...users, merged]);
       setCreating(false);
       toast.current?.show({ severity: 'success', summary: 'Creado', detail: 'Pasajero creado correctamente' });
+      await loadData();
     } catch (err) {
       console.error(err);
       toast.current?.show({ severity: 'error', summary: 'Error al crear', detail: err.response?.data?.error || err.response?.data?.message || 'Error del servidor' });
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -192,88 +199,61 @@ export default function PassengersManagement() {
     <>
     <Toast ref={toast} />
     <div className="management-section">
-      <div className="management-header">
-        <i className="pi pi-users" />
-        <div className="management-header-content">
-          <h2>Pasajeros</h2>
-          <p>Gestión de cuentas de pasajeros</p>
-        </div>
+      <ManagementPageHeader
+        title="Pasajeros"
+        subtitle="Gestión de cuentas de pasajeros"
+        icon="pi pi-users"
+        buttonLabel="Nuevo Pasajero"
+        onButtonClick={handleCreate}
+      />
+
+      <div className="dashboard-grid-premium">
+        <StatCardPremium 
+          title="Total Pasajeros" 
+          value={globalStats.total} 
+          icon="pi pi-users" 
+          tone="blue" 
+          subtitle="Registrados en sistema" 
+          loading={loading} 
+        />
+        <StatCardPremium title="Inactivos" value={globalStats.inactive} icon="pi pi-user-minus" tone="amber" subtitle="En el sistema" loading={loading} />
+        <StatCardPremium title="Eliminados" value={globalStats.deleted} icon="pi pi-trash" tone="red" subtitle="En el sistema" loading={loading} />
       </div>
 
-      <Card className="management-table">
-        <div className="management-toolbar">
-          <h3>Lista de Pasajeros ({filtered.length})</h3>
-          <div className="management-toolbar-actions">
-            <span className="p-input-icon-left">
-              <i className="pi pi-search" />
-              <InputText 
-                value={query} 
-                onChange={(e) => setQuery(e.target.value)} 
-                placeholder="Buscar por nombre o correo" 
-              />
-            </span>
-            <Button label="Nuevo Pasajero" icon="pi pi-plus" className="p-button-primary" onClick={handleCreate} />
-          </div>
-        </div>
-
-        <DataTable 
-          value={filtered} 
-          paginator 
-          rows={10} 
-          loading={loading} 
-          stripedRows 
-          responsiveLayout="scroll"
-        >
-          <Column field="name" header="Nombre" sortable />
-          <Column field="email" header="Correo" sortable />
-          <Column header="Estado" body={statusBody} />
-          <Column
-            header="Acciones"
-            body={(row) => (
-              <div className="action-buttons">
-                <Button 
-                  size="small" 
-                  icon="pi pi-eye" 
-                  text 
-                  onClick={() => setSelected(row)}
-                  title="Ver detalles"
-                />
-                {!row.deleted_at ? (
-                  <>
-                    <Button 
-                      size="small" 
-                      icon="pi pi-pencil" 
-                      text 
-                      className="p-button-warning"
-                      onClick={() => handleEdit(row)}
-                      title="Editar"
-                    />
-                    <Button 
-                      size="small" 
-                      icon="pi pi-ban" 
-                      text 
-                      className="p-button-danger"
-                      onClick={() => handleDelete(row)}
-                      title="Suspender"
-                    />
-                  </>
-                ) : (
-                  <Button 
-                    size="small" 
-                    icon="pi pi-refresh" 
-                    text 
-                    className="p-button-success"
-                    onClick={() => handleRestore(row)}
-                    title="Restaurar"
-                  />
-                )}
-              </div>
-            )}
+      <CustomDataTable
+        value={users}
+        columns={[
+          { field: "name", header: "Nombre" },
+          { field: "email", header: "Correo" },
+          { header: "Estado", body: statusBody },
+          { header: "Acciones", body: (row) => <ManagementActionButtons row={row} onEdit={handleEdit} onDelete={handleDelete} onView={setSelected} /> }
+        ]}
+        loading={loading}
+        page={page}
+        totalRecords={totalRecords}
+        onPageChange={setPage}
+        title={`Lista de Pasajeros (${totalRecords})`}
+        globalFilter={query}
+        setGlobalFilter={setQuery}
+        searchPlaceholder="Buscar por nombre o correo"
+        headerElements={
+          <Dropdown 
+            value={statusFilter} 
+            options={[
+              { label: 'Todos', value: 'all' },
+              { label: 'Activos', value: 'active' },
+              { label: 'Inactivos', value: 'inactive' },
+              { label: 'Eliminados', value: 'deleted' }
+            ]} 
+            optionLabel="label"
+            optionValue="value"
+            onChange={(e) => { setStatusFilter(e.value); setPage(1); }} 
+            placeholder="Filtrar por estado" 
           />
-        </DataTable>
-      </Card>
+        }
+      />
 
-      <Dialog
+      <Dialog blockScroll
         header="Detalles del Pasajero"
         visible={!!selected}
         style={{ width: '30rem' }}
@@ -346,62 +326,80 @@ export default function PassengersManagement() {
         )}
       </Dialog>
 
-      <Dialog
+      <Dialog blockScroll
         header="Editar Pasajero"
         visible={!!editing}
         style={{ width: '32rem' }}
         onHide={() => setEditing(null)}
       >
         {editForm && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <div>
-              <label htmlFor="name" style={{ display: 'block', marginBottom: '0.5rem' }}><strong>Nombre</strong></label>
-              <InputText
-                id="name"
-                value={editForm.name || ''}
-                onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                className="w-full"
-              />
-            </div>
-            <div>
-              <label htmlFor="email" style={{ display: 'block', marginBottom: '0.5rem' }}><strong>Correo</strong></label>
-              <InputText
-                id="email"
-                value={editForm.email || ''}
-                onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                className="w-full"
-              />
-            </div>
+          <>
+            <div className="grid p-fluid">
+              <div className="col-12 mb-3">
+                <div className="flex flex-column gap-2">
+                  <label htmlFor="name" className="font-bold">
+                    Nombre
+                  </label>
+                  <InputText
+                    id="name"
+                    value={editForm.name || ''}
+                    onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                    className="w-full"
+                  />
+                </div>
+              </div>
+              <div className="col-12 mb-3">
+                <div className="flex flex-column gap-2">
+                  <label htmlFor="email" className="font-bold">
+                    Correo
+                  </label>
+                  <InputText
+                    id="email"
+                    value={editForm.email || ''}
+                    onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                    className="w-full"
+                  />
+                </div>
+              </div>
 
-            <div>
-              <label htmlFor="password" style={{ display: 'block', marginBottom: '0.5rem' }}><strong>Nueva Contraseña (Opcional)</strong></label>
-              <InputText
-                id="password"
-                type="password"
-                value={editForm.password || ''}
-                onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
-                className="w-full"
-                placeholder="Dejar vacío para no cambiar"
-              />
-            </div>
+              <div className="col-12 mb-3">
+                <div className="flex flex-column gap-2">
+                  <label htmlFor="password" className="font-bold">
+                    Nueva Contraseña (Opcional)
+                  </label>
+                  <InputText
+                    id="password"
+                    type="password"
+                    value={editForm.password || ''}
+                    onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
+                    className="w-full"
+                    placeholder="Dejar vacío para no cambiar"
+                  />
+                </div>
+              </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <label htmlFor="is_active"><strong>Activo</strong></label>
-              <InputSwitch
-                id="is_active"
-                checked={editForm.is_active || false}
-                onChange={(e) => setEditForm({ ...editForm, is_active: e.value })}
-              />
+              <div className="col-12 mb-3">
+                <div className="flex align-items-center justify-content-between">
+                  <label htmlFor="is_active" className="font-bold">
+                    Activo
+                  </label>
+                  <InputSwitch
+                    id="is_active"
+                    checked={editForm.is_active || false}
+                    onChange={(e) => setEditForm({ ...editForm, is_active: e.value })}
+                  />
+                </div>
+              </div>
             </div>
-            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
+            <div className="premium-modal-footer">
               <Button label="Cancelar" onClick={() => setEditing(null)} className="p-button-text" />
-              <Button label="Guardar" onClick={handleSave} className="p-button-primary" />
+              <Button label="Guardar" onClick={handleSave} className="p-button-primary" loading={isSubmitting} />
             </div>
-          </div>
+          </>
         )}
       </Dialog>
 
-      <Dialog
+      <Dialog blockScroll
         visible={!!deleteConfirm}
         style={{ width: '26rem', borderRadius: '16px' }}
         onHide={() => setDeleteConfirm(null)}
@@ -454,6 +452,7 @@ export default function PassengersManagement() {
             <Button
               label="Suspender"
               onClick={confirmDelete}
+              loading={isSubmitting}
               style={{
                 flex: 1,
                 borderRadius: '8px',
@@ -471,57 +470,73 @@ export default function PassengersManagement() {
         </div>
       </Dialog>
 
-      <Dialog
+      <Dialog blockScroll
         header="Crear Nuevo Pasajero"
         visible={creating}
         style={{ width: '32rem' }}
         onHide={() => setCreating(false)}
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <div>
-            <label htmlFor="createName" style={{ display: 'block', marginBottom: '0.5rem' }}><strong>Nombre</strong></label>
-            <InputText
-              id="createName"
-              value={createForm.name || ''}
-              onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
-              className="w-full"
-              placeholder="Nombre completo"
-            />
+        <div className="grid p-fluid">
+          <div className="col-12 mb-3">
+            <div className="flex flex-column gap-2">
+              <label htmlFor="createName" className="font-bold">
+                Nombre
+              </label>
+              <InputText
+                id="createName"
+                value={createForm.name || ''}
+                onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
+                className="w-full"
+                placeholder="Nombre completo"
+              />
+            </div>
           </div>
-          <div>
-            <label htmlFor="createEmail" style={{ display: 'block', marginBottom: '0.5rem' }}><strong>Correo</strong></label>
-            <InputText
-              id="createEmail"
-              value={createForm.email || ''}
-              onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
-              className="w-full"
-              placeholder="correo@example.com"
-            />
+          <div className="col-12 mb-3">
+            <div className="flex flex-column gap-2">
+              <label htmlFor="createEmail" className="font-bold">
+                Correo
+              </label>
+              <InputText
+                id="createEmail"
+                value={createForm.email || ''}
+                onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
+                className="w-full"
+                placeholder="correo@example.com"
+              />
+            </div>
           </div>
-          <div>
-            <label htmlFor="createPassword" style={{ display: 'block', marginBottom: '0.5rem' }}><strong>Contraseña</strong></label>
-            <InputText
-              id="createPassword"
-              type="password"
-              value={createForm.password || ''}
-              onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
-              className="w-full"
-              placeholder="Mínimo 8 caracteres"
-            />
+          <div className="col-12 mb-3">
+            <div className="flex flex-column gap-2">
+              <label htmlFor="createPassword" className="font-bold">
+                Contraseña
+              </label>
+              <InputText
+                id="createPassword"
+                type="password"
+                value={createForm.password || ''}
+                onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
+                className="w-full"
+                placeholder="Mínimo 8 caracteres"
+              />
+            </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <label htmlFor="createActive"><strong>Activo</strong></label>
-            <InputSwitch
-              id="createActive"
-              checked={createForm.is_active || false}
-              onChange={(e) => setCreateForm({ ...createForm, is_active: e.value })}
-            />
+          <div className="col-12 mb-3">
+            <div className="flex align-items-center justify-content-between">
+              <label htmlFor="createActive" className="font-bold">
+                Activo
+              </label>
+              <InputSwitch
+                id="createActive"
+                checked={createForm.is_active || false}
+                onChange={(e) => setCreateForm({ ...createForm, is_active: e.value })}
+              />
+            </div>
           </div>
-          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
-            <Button label="Cancelar" onClick={() => setCreating(false)} className="p-button-text" />
-            <Button label="Crear" onClick={handleCreateSave} className="p-button-primary" />
-          </div>
+        </div>
+        <div className="premium-modal-footer">
+          <Button label="Cancelar" onClick={() => setCreating(false)} className="p-button-text" />
+          <Button label="Crear" onClick={handleCreateSave} className="p-button-primary" loading={isSubmitting} />
         </div>
       </Dialog>
     </div>

@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import ManagementPageHeader from "../../components/management/ManagementPageHeader";
+import { DetailModal, DetailField } from "../../components/ui/DetailModal";
 import { Button } from 'primereact/button';
 import { Card } from 'primereact/card';
 import { Column } from 'primereact/column';
@@ -6,10 +8,15 @@ import { DataTable } from 'primereact/datatable';
 import { Dialog } from 'primereact/dialog';
 import { InputText } from 'primereact/inputtext';
 import { InputTextarea } from 'primereact/inputtextarea';
+import { Dropdown } from 'primereact/dropdown';
 import { Toast } from 'primereact/toast';
 import { ProgressSpinner } from 'primereact/progressspinner';
+import { InputSwitch } from 'primereact/inputswitch';
 import DestinationMapPicker from '../../components/DestinationMapPicker';
-import { fetchDestinations, createDestination, updateDestination, deleteDestination, restoreDestination } from '../../services/adminService';
+import StatCardPremium from '../../components/StatCardPremium';
+import CustomDataTable from "../../components/ui/CustomDataTable";
+import ManagementActionButtons from "../../components/management/ManagementActionButtons";
+import { fetchDestinations, createDestination, updateDestination, deleteDestination } from '../../services/adminService';
 
 const DEFAULT_CENTER = [-0.9525, -80.7450];
 
@@ -48,6 +55,7 @@ const EMPTY_FORM = {
   longitude: '',
   address: '',
   is_default: false,
+  is_active: true
 };
 
 function normalizeDestination(destination) {
@@ -76,39 +84,53 @@ export default function DestinationsManagement() {
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
 
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState(null);
+  const [page, setPage] = useState(1);
+  const [totalRecords, setTotalRecords] = useState(0);
+  const [globalStats, setGlobalStats] = useState({ inactive: 0, deleted: 0, total: 0 });
+
   useEffect(() => {
-    const load = async () => {
-      setLoading(true);
+    const handler = setTimeout(() => {
+      setDebouncedQuery(query);
+      setPage(1);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [query]);
 
-      try {
-        const result = await fetchDestinations();
-        const normalized = (result || []).map(normalizeDestination).filter((destination) =>
-          Number.isFinite(destination.latitude) && Number.isFinite(destination.longitude)
-        );
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-        setDestinations(normalized.length ? normalized : LOCAL_DESTINATIONS);
-      } catch {
-        setDestinations(LOCAL_DESTINATIONS);
-      } finally {
-        setLoading(false);
+  const loadData = async (pageNumber = page) => {
+    setLoading(true);
+
+    try {
+      const result = await fetchDestinations({ per_page: 10, page: pageNumber, search: debouncedQuery, status: statusFilter });
+      const dataArray = result?.data || [];
+      const normalized = dataArray.map(normalizeDestination).filter((destination) =>
+        Number.isFinite(destination.latitude) && Number.isFinite(destination.longitude)
+      );
+
+      setDestinations(normalized);
+      setTotalRecords(result?.total || 0);
+      if (result?.total_inactivos !== undefined) {
+        setGlobalStats({
+          inactive: result.total_inactivos || 0,
+          deleted: result.total_eliminados || 0,
+          total: result.total_registrados || 0,
+        });
       }
-    };
+    } catch (err) {
+      console.error('Error al cargar destinos:', err);
+      setDestinations([]);
+      setTotalRecords(0);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    load();
-  }, []);
-
-  const filtered = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
-
-    return destinations.filter((destination) => {
-      const text = [destination.name, destination.description, destination.latitude, destination.longitude]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase();
-
-      return text.includes(normalizedQuery);
-    });
-  }, [destinations, query]);
+  useEffect(() => {
+    loadData(page);
+  }, [page, debouncedQuery, statusFilter]);
 
   const openCreate = () => {
     setForm({
@@ -130,6 +152,7 @@ export default function DestinationsManagement() {
       longitude: Number.isFinite(destination.longitude) ? String(destination.longitude) : '',
       address: destination.address || '',
       is_default: Boolean(destination.is_default),
+      is_active: destination.is_active !== undefined ? destination.is_active : true,
     });
     setEditing(true);
     setCreating(false);
@@ -170,28 +193,27 @@ export default function DestinationsManagement() {
       return;
     }
 
-    setLoading(true);
+    setIsSubmitting(true);
     try {
       const payload = {
         name: form.name.trim(),
         description: form.description.trim(),
         latitude,
         longitude,
-        address: form.address.trim()
+        address: form.address.trim(),
+        is_default: form.is_default,
+        is_active: form.is_active
       };
 
       if (editing) {
-        const response = await updateDestination(form.id, payload);
-        const normalized = normalizeDestination(response);
-        setDestinations(destinations.map((destination) => (destination.id === form.id ? normalized : destination)));
+        await updateDestination(form.id, payload);
         toast.current?.show({ severity: 'success', summary: 'Actualizado', detail: 'Destino actualizado correctamente' });
       } else {
-        const response = await createDestination(payload);
-        const normalized = normalizeDestination(response);
-        setDestinations([...destinations, normalized]);
+        await createDestination(payload);
         toast.current?.show({ severity: 'success', summary: 'Creado', detail: 'Destino creado correctamente' });
       }
       closeForm();
+      await loadData();
     } catch (err) {
       console.error(err);
       toast.current?.show({ 
@@ -200,7 +222,7 @@ export default function DestinationsManagement() {
         detail: err.response?.data?.error || err.response?.data?.message || 'Error al guardar destino.' 
       });
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -213,35 +235,21 @@ export default function DestinationsManagement() {
       return;
     }
 
-    setLoading(true);
+    setIsSubmitting(true);
     try {
       await deleteDestination(deleteConfirm.id);
-      setDestinations(destinations.map((d) => d.id === deleteConfirm.id ? { ...d, deleted_at: new Date().toISOString() } : d));
       setDeleteConfirm(null);
-      toast.current?.show({ severity: 'success', summary: 'Suspendido', detail: 'Destino suspendido correctamente' });
+      toast.current?.show({ severity: 'success', summary: 'Eliminado', detail: 'Destino eliminado correctamente' });
+      await loadData();
     } catch (err) {
       console.error(err);
       toast.current?.show({ 
         severity: 'error', 
         summary: 'Error', 
-        detail: err.response?.data?.error || 'No se pudo suspender el destino.' 
+        detail: err.response?.data?.error || 'No se pudo eliminar el destino.' 
       });
     } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleRestore = async (row) => {
-    setLoading(true);
-    try {
-      await restoreDestination(row.id);
-      setDestinations(destinations.map((d) => d.id === row.id ? { ...d, deleted_at: null } : d));
-      toast.current?.show({ severity: 'success', summary: 'Restaurado', detail: 'Destino restaurado correctamente' });
-    } catch (err) {
-      console.error(err);
-      toast.current?.show({ severity: 'error', summary: 'Error', detail: err.response?.data?.error || 'No se pudo restaurar el destino' });
-    } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -250,94 +258,87 @@ export default function DestinationsManagement() {
       <Toast ref={toast} />
 
       <div className="management-section">
-        <div className="management-header">
-          <i className="pi pi-map-marker" />
-          <div className="management-header-content">
-            <h2>Destinos</h2>
-            <p>Administración de puntos predeterminados y destinos nuevos</p>
-          </div>
+        <ManagementPageHeader
+          title="Destinos"
+          subtitle="Gestión de puntos de destino en el mapa"
+          icon="pi pi-map-marker"
+          buttonLabel="Nuevo Destino"
+          onButtonClick={openCreate}
+        />
+
+        <div className="dashboard-grid-premium">
+          <StatCardPremium title="Total Destinos" value={globalStats.total} icon="pi pi-map-marker" tone="blue" subtitle="Registrados en sistema" loading={loading} />
+          <StatCardPremium title="Inactivos" value={globalStats.inactive} icon="pi pi-compass" tone="amber" subtitle="En el sistema" loading={loading} />
+          <StatCardPremium title="Eliminados" value={globalStats.deleted} icon="pi pi-trash" tone="red" subtitle="En el sistema" loading={loading} />
         </div>
 
-        <Card className="management-table">
-          <div className="management-toolbar">
-            <h3>Lista de Destinos ({filtered.length})</h3>
-            <div className="management-toolbar-actions">
-              <span className="p-input-icon-left">
-                <i className="pi pi-search" />
-                <InputText
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Buscar por nombre o descripción"
-                />
-              </span>
-              <Button label="Nuevo Destino" icon="pi pi-plus" className="p-button-primary" onClick={openCreate} />
-            </div>
-          </div>
+      <CustomDataTable
+        value={destinations}
+        columns={[
+          { field: "name", header: "Nombre" },
+          { header: "Descripción", body: (row) => row.description || 'Sin descripción' },
+          { header: "Latitud", body: (row) => formatCoordinate(row.latitude) },
+          { header: "Longitud", body: (row) => formatCoordinate(row.longitude) },
+          { header: "Predeterminado", body: (row) => <span style={{ color: row.is_default ? '#2e7d32' : '#6b7280', fontWeight: 600 }}>{row.is_default ? 'Sí' : 'No'}</span> },
+          { header: "Estado", body: (row) => {
+              if (row.deleted_at) return <span className="status-badge status-inactivo" style={{ backgroundColor: '#e57373', color: '#fff' }}>Eliminado</span>;
+              return <span className={`status-badge status-${row.is_active ? 'activo' : 'inactivo'}`}>{row.is_active ? 'Activo' : 'Inactivo'}</span>;
+            } 
+          },
+          { header: "Acciones", body: (row) => <ManagementActionButtons row={row} onEdit={openEdit} onDelete={handleDelete} onView={setSelected} /> }
+        ]}
+        loading={loading}
+        page={page}
+        totalRecords={totalRecords}
+        onPageChange={setPage}
+        title={`Lista de Destinos (${totalRecords})`}
+        globalFilter={query}
+        setGlobalFilter={setQuery}
+        searchPlaceholder="Buscar por nombre o descripción"
+        headerElements={
+          <Dropdown 
+            value={statusFilter} 
+            options={[
+              { label: 'Todos', value: null },
+              { label: 'Activos', value: 'active' },
+              { label: 'Inactivos', value: 'inactive' },
+              { label: 'Eliminados', value: 'deleted' }
+            ]} 
+            optionLabel="label"
+            optionValue="value"
+            onChange={(e) => { setStatusFilter(e.value); setPage(1); }} 
+            placeholder="Filtrar por estado" 
+          />
+        }
+      />
 
-          <DataTable value={filtered} paginator rows={10} loading={loading} responsiveLayout="scroll" stripedRows emptyMessage="No hay destinos registrados">
-            <Column field="name" header="Nombre" sortable />
-            <Column field="description" header="Descripción" body={(row) => row.description || 'Sin descripción'} />
-            <Column header="Latitud" body={(row) => formatCoordinate(row.latitude)} />
-            <Column header="Longitud" body={(row) => formatCoordinate(row.longitude)} />
-            <Column
-              header="Predeterminado"
-              body={(row) => (
-                <span style={{ color: row.is_default ? '#2e7d32' : '#6b7280', fontWeight: 600 }}>
-                  {row.is_default ? 'Sí' : 'No'}
-                </span>
-              )}
-            />
-            <Column
-              header="Estado"
-              body={(row) => {
-                if (row.deleted_at) {
-                  return <span className="status-badge status-inactivo" style={{ backgroundColor: '#e57373', color: '#fff' }}>Suspendido</span>;
-                }
-                return (
-                  <span className={`status-badge status-${row.is_active ? 'activo' : 'inactivo'}`}>
-                    {row.is_active ? 'Activo' : 'Inactivo'}
-                  </span>
-                );
-              }}
-            />
-            <Column
-              header="Acciones"
-              body={(row) => (
-                <div className="action-buttons">
-                  <Button size="small" icon="pi pi-eye" text onClick={() => setSelected(row)} title="Ver" />
-                  {!row.deleted_at ? (
-                    <>
-                      <Button size="small" icon="pi pi-pencil" text className="p-button-warning" onClick={() => openEdit(row)} title="Editar" />
-                      <Button size="small" icon="pi pi-ban" text className="p-button-danger" onClick={() => handleDelete(row)} title="Suspender" />
-                    </>
-                  ) : (
-                    <Button size="small" icon="pi pi-refresh" text className="p-button-success" onClick={() => handleRestore(row)} title="Restaurar" />
-                  )}
-                </div>
-              )}
-            />
-          </DataTable>
-        </Card>
-
-        <Dialog
+        <DetailModal
           header="Detalles del Destino"
           visible={!!selected}
-          style={{ width: '32rem' }}
           onHide={() => setSelected(null)}
+          icon="pi pi-map-marker"
+          title={selected?.name}
+          subtitle={selected?.description || 'Sin descripción'}
         >
           {selected && (
-            <div className="user-detail">
-              <p><strong>Nombre:</strong> {selected.name}</p>
-              <p><strong>Descripción:</strong> {selected.description || 'No registrada'}</p>
-              <p><strong>Dirección:</strong> {selected.address || 'No registrada'}</p>
-              <p><strong>Latitud:</strong> {formatCoordinate(selected.latitude)}</p>
-              <p><strong>Longitud:</strong> {formatCoordinate(selected.longitude)}</p>
-              <p><strong>Predeterminado:</strong> {selected.is_default ? 'Sí' : 'No'}</p>
-            </div>
+            <>
+              <DetailField icon="pi pi-directions" label="Dirección">
+                {selected.address || 'No registrada'}
+              </DetailField>
+              <DetailField icon="pi pi-compass" label="Latitud">
+                {formatCoordinate(selected.latitude)}
+              </DetailField>
+              <DetailField icon="pi pi-compass" label="Longitud">
+                {formatCoordinate(selected.longitude)}
+              </DetailField>
+              <DetailField icon="pi pi-star" label="Predeterminado">
+                {selected.is_default ? 'Sí' : 'No'}
+              </DetailField>
+            </>
           )}
-        </Dialog>
+        </DetailModal>
 
-        <Dialog
+        <Dialog blockScroll
           header={creating ? 'Crear Nuevo Destino' : 'Editar Destino'}
           visible={creating || editing}
           style={{ width: '58rem' }}
@@ -427,25 +428,38 @@ export default function DestinationsManagement() {
                   <span style={{ fontWeight: 600 }}>Marcar como destino predeterminado</span>
                 </label>
               </div>
+
+              {editing && (
+                <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', marginTop: '0.5rem' }}>
+                  <InputSwitch 
+                    id="is_active" 
+                    checked={form.is_active} 
+                    onChange={(e) => setForm({ ...form, is_active: e.value })} 
+                  />
+                  <label htmlFor="is_active" style={{ marginLeft: '0.5rem', fontWeight: 'bold' }}>
+                    Activo
+                  </label>
+                </div>
+              )}
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '0.5rem' }}>
-              <Button label="Cancelar" onClick={closeForm} className="p-button-text" />
-              <Button label={creating ? 'Crear' : 'Guardar'} onClick={handleSave} className="p-button-primary" />
-            </div>
+          </div>
+          <div className="premium-modal-footer">
+            <Button label="Cancelar" onClick={closeForm} className="p-button-text" />
+            <Button label={creating ? 'Crear' : 'Guardar'} onClick={handleSave} className="p-button-primary" loading={isSubmitting} />
           </div>
         </Dialog>
 
-        <Dialog
-          header="Confirmar suspensión"
+        <Dialog blockScroll
+          header="Confirmar Eliminación"
           visible={!!deleteConfirm}
           style={{ width: '32rem' }}
           onHide={() => setDeleteConfirm(null)}
         >
-          <p>¿Está seguro que desea suspender este destino? Podrá restaurarlo más adelante.</p>
+          <p>¿Está seguro que desea eliminar este destino? Esta acción no se puede deshacer.</p>
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
             <Button label="Cancelar" onClick={() => setDeleteConfirm(null)} className="p-button-text" />
-            <Button label="Suspender" onClick={confirmDelete} className="p-button-danger" />
+            <Button label="Eliminar" onClick={confirmDelete} className="p-button-danger" loading={isSubmitting} />
           </div>
         </Dialog>
       </div>

@@ -2,8 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from 'primereact/button';
 import { Card } from 'primereact/card';
-import { Column } from 'primereact/column';
-import { DataTable } from 'primereact/datatable';
+import CustomDataTable from '../components/ui/CustomDataTable';
 import { Dialog } from 'primereact/dialog';
 import { InputText } from 'primereact/inputtext';
 import { Tag } from 'primereact/tag';
@@ -15,39 +14,41 @@ export default function UsersPage() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [totalRecords, setTotalRecords] = useState(0);
   const [selectedUser, setSelectedUser] = useState(null);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedQuery(searchQuery);
+      setPage(1);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
 
   useEffect(() => {
     const load = async () => {
       setLoading(true);
       try {
-        const data = await fetchUsers();
-        // Mapear los roles en minúsculas para mantener consistencia
-        const parsed = data.map(u => ({
+        const result = await fetchUsers({ per_page: 10, page, search: debouncedQuery });
+        const dataArray = result?.data || [];
+        const parsed = dataArray.map(u => ({
           ...u,
           role: (u.role || u.rol?.rol_name || 'pasajero').toLowerCase()
         }));
         setUsers(parsed);
+        setTotalRecords(result?.total || 0);
       } catch (error) {
         console.error('Error al cargar usuarios:', error);
         setUsers([]);
+        setTotalRecords(0);
       } finally {
         setLoading(false);
       }
     };
     load();
-  }, []);
-
-  const filteredUsers = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-    if (!query) return users;
-    return users.filter(
-      (u) =>
-        u.name?.toLowerCase().includes(query) ||
-        u.email?.toLowerCase().includes(query) ||
-        u.role?.toLowerCase().includes(query)
-    );
-  }, [users, searchQuery]);
+  }, [page, debouncedQuery]);
 
   const roleBodyTemplate = (row) => {
     const role = row.role?.toLowerCase() || 'pasajero';
@@ -136,49 +137,35 @@ export default function UsersPage() {
   return (
     <div className="management-section">
       <div className="management-header">
-        <i className="pi pi-users" style={{ color: 'var(--brand-700)' }} />
-        <div className="management-header-content">
-          <h2>Usuarios del Sistema</h2>
-          <p>Visión general y monitoreo consolidado de todas las cuentas registradas</p>
+        <div className="management-header-left">
+          <i className="pi pi-users" style={{ color: 'white' }} />
+          <div className="management-header-content">
+            <h2>Usuarios del Sistema</h2>
+            <p>Visión general y monitoreo consolidado de todas las cuentas registradas</p>
+          </div>
         </div>
       </div>
 
-      <Card className="management-table">
-        <div className="users-toolbar">
-          <h2>Lista de Usuarios ({filteredUsers.length})</h2>
-          <div className="management-toolbar-actions">
-            <span className="p-input-icon-left">
-              <i className="pi pi-search" />
-              <InputText
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Buscar por nombre, correo o rol..."
-                style={{ width: '18rem', borderRadius: '0.5rem' }}
-              />
-            </span>
-          </div>
-        </div>
-
-        <DataTable
-          value={filteredUsers}
-          paginator
-          rows={10}
-          stripedRows
-          responsiveLayout="scroll"
-          emptyMessage="No se encontraron usuarios"
+        <CustomDataTable
+          value={users}
           loading={loading}
-          rowsPerPageOptions={[5, 10, 20, 50]}
-          paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
-          currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} usuarios"
-        >
-          <Column field="name" header="Nombre" sortable style={{ fontWeight: 500 }} />
-          <Column field="email" header="Correo Electrónico" sortable />
-          <Column header="Rol" body={roleBodyTemplate} sortable sortField="role" />
-          <Column header="Estado" body={statusBodyTemplate} sortable sortField="is_active" />
-          <Column header="Fecha de Registro" body={dateBodyTemplate} sortable sortField="created_at" />
-          <Column header="Acciones" body={actionsBodyTemplate} style={{ width: '8rem', textAlign: 'center' }} />
-        </DataTable>
-      </Card>
+          page={page}
+          totalRecords={totalRecords}
+          rows={10}
+          onPageChange={setPage}
+          title={`Lista de Usuarios (${totalRecords})`}
+          globalFilter={searchQuery}
+          setGlobalFilter={setSearchQuery}
+          searchPlaceholder="Buscar por nombre, correo o rol..."
+          columns={[
+            { field: 'name', header: 'Nombre' },
+            { field: 'email', header: 'Correo Electrónico' },
+            { header: 'Rol', body: roleBodyTemplate },
+            { header: 'Estado', body: statusBodyTemplate },
+            { header: 'Fecha de Registro', body: dateBodyTemplate },
+            { header: 'Acciones', body: actionsBodyTemplate }
+          ]}
+        />
 
       <Dialog
         header="Detalles del Usuario"

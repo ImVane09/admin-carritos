@@ -83,22 +83,56 @@ export default function ManagementPage() {
       count: counts.destinations
     },
     {
+      title: 'Flota de Vehículos',
+      description: 'Registro y estado de los carritos',
+      icon: 'pi pi-car',
+      color: '#f59e0b',
+      path: '/management/vehicles',
+      count: counts.vehicles
+    },
+    {
       title: 'Historial de Viajes',
       description: 'Ver y auditar el historial de viajes y calificaciones',
       icon: 'pi pi-history',
       color: '#9c27b0',
       path: '/management/trips',
       count: counts.trips === '...' ? '...' : (typeof counts.trips === 'number' ? `${counts.trips} viajes` : counts.trips)
+    },
+    {
+      title: 'Horarios (Shifts)',
+      description: 'Gestionar turnos disponibles en el campus',
+      icon: 'pi pi-clock',
+      color: '#00bcd4',
+      path: '/management/shifts',
+      count: 'Ver'
+    },
+    {
+      title: 'Asignaciones',
+      description: 'Asignar vehículos y horarios a conductores',
+      icon: 'pi pi-calendar-plus',
+      color: '#e91e63',
+      path: '/management/assignments',
+      count: 'Ver'
+    },
+    {
+      title: 'Eventos',
+      description: 'Gestionar eventos y asignar carritos especiales',
+      icon: 'pi pi-ticket',
+      color: '#673ab7',
+      path: '/management/events',
+      count: 'Ver'
     }
   ];
 
   return (
     <div className="management-section">
       <div className="management-header">
-        <i className="pi pi-bars" />
-        <div className="management-header-content">
-          <h2>Centro de Gestión</h2>
-          <p>Administración integral del sistema de carritos</p>
+        <div className="management-header-left">
+          <i className="pi pi-briefcase" style={{ color: 'white' }} />
+          <div className="management-header-content">
+            <h2>Gestión Administrativa</h2>
+            <p>Selecciona un módulo para administrar los recursos del sistema</p>
+          </div>
         </div>
       </div>
 

@@ -20,6 +20,13 @@ const destinationIcon = L.divIcon({
   iconAnchor: [7, 7],
 });
 
+const maintenanceIcon = L.divIcon({
+  html: '<div style="width:16px;height:16px;border-radius:50%;background:#2196F3;border:2px solid #fff;box-shadow:0 0 0 2px rgba(33,150,243,.3);"></div>',
+  className: '',
+  iconSize: [16, 16],
+  iconAnchor: [8, 8],
+});
+
 function toNumber(value) {
   const parsed = typeof value === 'number' ? value : Number.parseFloat(value);
   return Number.isFinite(parsed) ? parsed : null;
@@ -42,8 +49,8 @@ export default function DashboardLiveMap({ drivers = [], destinations = [], cent
       doubleClickZoom: false,
     }).setView(center, 16);
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; CartoDB',
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     }).addTo(map);
 
     layerRef.current = L.layerGroup().addTo(map);
@@ -96,9 +103,12 @@ export default function DashboardLiveMap({ drivers = [], destinations = [], cent
         return;
       }
 
-      L.marker([latitude, longitude], { icon: driverIcon })
+      const isMaintenance = driver.vehicle && driver.vehicle.status === 'maintenance';
+      const icon = isMaintenance ? maintenanceIcon : driverIcon;
+
+      L.marker([latitude, longitude], { icon })
         .addTo(layer)
-        .bindPopup(`<strong>${driver.name || 'Conductor'}</strong><br/>${driver.is_online ? 'En línea' : 'Sin ubicación'}`);
+        .bindPopup(`<strong>${driver.name || 'Conductor'}</strong><br/>${isMaintenance ? 'Labores Manuales' : (driver.is_online ? 'En línea' : 'Sin ubicación')}`);
       bounds.push([latitude, longitude]);
     });
 

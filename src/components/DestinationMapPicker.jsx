@@ -28,25 +28,34 @@ export default function DestinationMapPicker({ value, destinations = [], onChang
   const mapRef = useRef(null);
   const markersRef = useRef([]);
   const selectedMarkerRef = useRef(null);
+  const onChangeRef = useRef(onChange);
+  const initialCenterRef = useRef(
+    Array.isArray(center) && center.length === 2 ? center : DEFAULT_CENTER,
+  );
 
+  // Keep ref updated without triggering re-renders
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
+
+  // Initialize map ONLY once
   useEffect(() => {
     if (!mapElementRef.current || mapRef.current) {
-      return undefined;
+      return;
     }
 
-    const initialCenter = Array.isArray(center) && center.length === 2 ? center : DEFAULT_CENTER;
     const map = L.map(mapElementRef.current, {
       zoomControl: true,
       scrollWheelZoom: true,
       doubleClickZoom: false,
-    }).setView(initialCenter, 16);
+    }).setView(initialCenterRef.current, 16);
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; CartoDB',
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     }).addTo(map);
 
     map.on('click', (event) => {
-      onChange?.({
+      onChangeRef.current?.({
         latitude: event.latlng.lat,
         longitude: event.latlng.lng,
       });
@@ -54,14 +63,21 @@ export default function DestinationMapPicker({ value, destinations = [], onChang
 
     mapRef.current = map;
 
+    // Use ResizeObserver to fix the grey tiles bug when modal opens or resizes
+    const resizeObserver = new ResizeObserver(() => {
+      map.invalidateSize();
+    });
+    resizeObserver.observe(mapElementRef.current);
+
     return () => {
+      resizeObserver.disconnect();
       map.off();
       map.remove();
       mapRef.current = null;
       markersRef.current = [];
       selectedMarkerRef.current = null;
     };
-  }, [center, onChange]);
+  }, []); // <--- Empty array prevents map from destroying itself!
 
   useEffect(() => {
     const map = mapRef.current;
@@ -109,18 +125,6 @@ export default function DestinationMapPicker({ value, destinations = [], onChang
     selectedMarkerRef.current = L.marker([latitude, longitude], { icon: selectedMarkerIcon }).addTo(map);
     map.panTo([latitude, longitude], { animate: true, duration: 0.5 });
   }, [value?.latitude, value?.longitude]);
-
-  useEffect(() => {
-    if (!mapRef.current) {
-      return undefined;
-    }
-
-    const timer = window.setTimeout(() => {
-      mapRef.current?.invalidateSize();
-    }, 120);
-
-    return () => window.clearTimeout(timer);
-  }, []);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>

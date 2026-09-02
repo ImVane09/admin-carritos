@@ -50,7 +50,8 @@ api.interceptors.response.use(
     if (error.response && error.response.status === 401) {
       localStorage.removeItem('admin_token');
       localStorage.removeItem('admin_user');
-      if (typeof window !== 'undefined') {
+      const isLoginRequest = error.config && error.config.url && error.config.url.includes('/login');
+      if (typeof window !== 'undefined' && !isLoginRequest) {
         window.location.href = '/';
       }
     }
