@@ -11,6 +11,23 @@ import { Dropdown } from "primereact/dropdown";
 import { fetchTrips } from "../../services/adminService";
 import StatCardPremium from "../../components/StatCardPremium";
 
+const PASSENGER_STATUS_LABELS = {
+  requested: "Solicitado",
+  accepted: "Aceptado",
+  boarded: "Abordó",
+  in_progress: "En viaje",
+  picked_up: "Recogido",
+  dropped_off: "Finalizó viaje",
+  completed: "Completado",
+  cancelled: "Cancelado",
+  rejected: "Rechazado",
+};
+
+function translatePassengerStatus(status) {
+  if (!status) return "Sin estado";
+  return PASSENGER_STATUS_LABELS[String(status).toLowerCase()] || status;
+}
+
 
 function formatDate(value) {
   if (!value) return "—";
@@ -585,7 +602,7 @@ export default function TripsHistoryManagement() {
                             background: p.pivot?.status === 'cancelled' ? '#ffebee' : '#e3f2fd',
                             color: p.pivot?.status === 'cancelled' ? '#c62828' : '#1565c0'
                           }}>
-                            {p.pivot?.status || 'desconocido'}
+                            {translatePassengerStatus(p.pivot?.status)}
                           </span>
                         </div>
                       ))

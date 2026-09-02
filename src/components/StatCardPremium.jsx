@@ -1,4 +1,3 @@
-import React from 'react';
 import { ProgressSpinner } from 'primereact/progressspinner';
 
 export default function StatCardPremium({ title, value, icon, tone, subtitle, loading }) {

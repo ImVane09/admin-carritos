@@ -2,19 +2,27 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from 'primereact/card';
 import { fetchDashboardStats } from '../services/adminService';
+import { useAuth } from '../context/AuthContext';
 
 export default function ManagementPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [error, setError] = useState('');
   const [counts, setCounts] = useState({
     admins: '...',
     drivers: '...',
     passengers: '...',
     destinations: '...',
+    vehicles: '...',
     trips: '...'
   });
 
   useEffect(() => {
     let active = true;
+
+    if (user?.id !== 1 && !user?.permissions?.includes('view_dashboard')) {
+      return () => { active = false; };
+    }
 
     const loadCounts = async () => {
       try {
@@ -27,18 +35,13 @@ export default function ManagementPage() {
           drivers: stats.drivers,
           passengers: stats.passengers,
           destinations: stats.destinations,
+          vehicles: stats.vehicles,
           trips: stats.trips
         });
       } catch (err) {
         console.error('Error loading management page metrics:', err);
         if (!active) return;
-        setCounts({
-          admins: 3,
-          drivers: 24,
-          passengers: 156,
-          destinations: 42,
-          trips: 'Historial'
-        });
+        setError('No se pudieron cargar los indicadores. Intenta nuevamente.');
       }
     };
 
@@ -47,7 +50,7 @@ export default function ManagementPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [user]);
 
   const managementOptions = [
     {
@@ -56,7 +59,8 @@ export default function ManagementPage() {
       icon: 'pi pi-shield',
       color: '#f83737ff',
       path: '/management/admins',
-      count: counts.admins
+      count: counts.admins,
+      permission: 'manage_admins'
     },
     {
       title: 'Conductores',
@@ -64,7 +68,8 @@ export default function ManagementPage() {
       icon: 'pi pi-car',
       color: '#1E88E5',
       path: '/management/drivers',
-      count: counts.drivers
+      count: counts.drivers,
+      permission: 'manage_users'
     },
     {
       title: 'Pasajeros',
@@ -72,7 +77,8 @@ export default function ManagementPage() {
       icon: 'pi pi-users',
       color: '#4caf50',
       path: '/management/passengers',
-      count: counts.passengers
+      count: counts.passengers,
+      permission: 'manage_users'
     },
     {
       title: 'Destinos',
@@ -80,7 +86,8 @@ export default function ManagementPage() {
       icon: 'pi pi-map-marker',
       color: '#ff9800',
       path: '/management/destinations',
-      count: counts.destinations
+      count: counts.destinations,
+      permission: 'manage_destinations'
     },
     {
       title: 'Flota de Vehículos',
@@ -88,7 +95,8 @@ export default function ManagementPage() {
       icon: 'pi pi-car',
       color: '#f59e0b',
       path: '/management/vehicles',
-      count: counts.vehicles
+      count: counts.vehicles,
+      permission: 'manage_vehicles'
     },
     {
       title: 'Historial de Viajes',
@@ -96,7 +104,8 @@ export default function ManagementPage() {
       icon: 'pi pi-history',
       color: '#9c27b0',
       path: '/management/trips',
-      count: counts.trips === '...' ? '...' : (typeof counts.trips === 'number' ? `${counts.trips} viajes` : counts.trips)
+      count: counts.trips === '...' ? '...' : (typeof counts.trips === 'number' ? `${counts.trips} viajes` : counts.trips),
+      permission: 'view_history'
     },
     {
       title: 'Horarios (Shifts)',
@@ -104,7 +113,8 @@ export default function ManagementPage() {
       icon: 'pi pi-clock',
       color: '#00bcd4',
       path: '/management/shifts',
-      count: 'Ver'
+      count: 'Ver',
+      permission: 'manage_shifts'
     },
     {
       title: 'Asignaciones',
@@ -112,7 +122,8 @@ export default function ManagementPage() {
       icon: 'pi pi-calendar-plus',
       color: '#e91e63',
       path: '/management/assignments',
-      count: 'Ver'
+      count: 'Ver',
+      permission: 'manage_assignments'
     },
     {
       title: 'Eventos',
@@ -120,9 +131,13 @@ export default function ManagementPage() {
       icon: 'pi pi-ticket',
       color: '#673ab7',
       path: '/management/events',
-      count: 'Ver'
+      count: 'Ver',
+      permission: 'manage_events'
     }
   ];
+
+  const canAccess = (permission) => user?.id === 1 || user?.permissions?.includes(permission);
+  const visibleManagementOptions = managementOptions.filter((option) => canAccess(option.permission));
 
   return (
     <div className="management-section">
@@ -137,7 +152,8 @@ export default function ManagementPage() {
       </div>
 
       <div className="stats-grid">
-        {managementOptions.map((option) => (
+        {error && <p role="alert" style={{ gridColumn: '1 / -1', color: 'var(--danger-color)' }}>{error}</p>}
+        {visibleManagementOptions.map((option) => (
           <div
             key={option.path}
             className="stat-card"
@@ -161,7 +177,7 @@ export default function ManagementPage() {
       <Card style={{ marginTop: '2rem' }}>
         <h3 style={{ color: 'var(--primary-main)', marginBottom: '1rem' }}>Acciones Rápidas</h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
-          {managementOptions.map((option) => (
+          {visibleManagementOptions.map((option) => (
             <button
               key={option.path}
               onClick={() => navigate(option.path)}

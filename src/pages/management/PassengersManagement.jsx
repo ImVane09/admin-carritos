@@ -9,7 +9,7 @@ import { InputText } from 'primereact/inputtext';
 import { InputSwitch } from 'primereact/inputswitch';
 import { Dropdown } from 'primereact/dropdown';
 import { Toast } from 'primereact/toast';
-import { fetchUsers, registerPassenger, updateUser, deleteUser, toggleUserStatus, restoreUser } from '../../services/adminService';
+import { fetchUsers, registerPassenger, updateUser, deleteUser } from '../../services/adminService';
 import { ProgressSpinner } from 'primereact/progressspinner';
 import { useRef } from 'react';
 import StatCardPremium from '../../components/StatCardPremium';
@@ -101,17 +101,14 @@ export default function PassengersManagement() {
     try {
       const payload = {
         name: editForm.name,
-        email: editForm.email
+        email: editForm.email,
+        is_active: editForm.is_active,
       };
       if (editForm.password?.trim()) {
         payload.password = editForm.password.trim();
       }
       await updateUser(editForm.id, payload);
 
-      const original = users.find(u => u.id === editForm.id);
-      if (original && (!!original.is_active !== !!editForm.is_active)) {
-        await toggleUserStatus(editForm.id);
-      }
       
       setEditing(null);
       toast.current?.show({ severity: 'success', summary: 'Éxito', detail: 'Pasajero actualizado correctamente' });
@@ -143,19 +140,6 @@ export default function PassengersManagement() {
     }
   };
 
-  const handleRestore = async (row) => {
-    setIsSubmitting(true);
-    try {
-      await restoreUser(row.id);
-      toast.current?.show({ severity: 'success', summary: 'Restaurado', detail: 'Pasajero restaurado correctamente' });
-      await loadData();
-    } catch (err) {
-      console.error(err);
-      toast.current?.show({ severity: 'error', summary: 'Error', detail: err.response?.data?.error || 'No se pudo restaurar al pasajero' });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   const handleCreate = () => {
     setCreating(true);
@@ -178,8 +162,7 @@ export default function PassengersManagement() {
         name: createForm.name,
         email: createForm.email,
         password: createForm.password,
-        password_confirmation: createForm.password,
-        role_id: 2
+        is_active: createForm.is_active,
       });
 
       setCreating(false);
@@ -429,7 +412,7 @@ export default function PassengersManagement() {
             color: '#0f172a',
             fontFamily: "'Outfit', sans-serif"
           }}>
-            ¿Confirmar suspensión?
+            ¿Confirmar eliminación?
           </h3>
           
           <p style={{
@@ -439,7 +422,7 @@ export default function PassengersManagement() {
             lineHeight: '1.45',
             fontFamily: "'Outfit', sans-serif"
           }}>
-            ¿Está seguro que desea suspender a este pasajero? Podrá restaurarlo o volver a activarlo en cualquier momento más adelante.
+            ¿Está seguro que desea eliminar a este pasajero? El registro se conservará como historial y la acción será definitiva.
           </p>
           
           <div style={{ display: 'flex', gap: '0.75rem', width: '100%' }}>
@@ -450,7 +433,7 @@ export default function PassengersManagement() {
               style={{ flex: 1, borderRadius: '8px' }}
             />
             <Button
-              label="Suspender"
+              label="Eliminar"
               onClick={confirmDelete}
               loading={isSubmitting}
               style={{

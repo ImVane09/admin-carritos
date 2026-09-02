@@ -18,8 +18,6 @@ import {
   createUserDriver,
   updateUser,
   deleteUser,
-  toggleUserStatus,
-  restoreUser,
 } from "../../services/adminService";
 import { ProgressSpinner } from "primereact/progressspinner";
 import { useRef } from "react";
@@ -145,16 +143,13 @@ export default function DriversManagement() {
       const payload = {
         name: editForm.name,
         email: editForm.email,
+        is_active: editForm.is_active,
       };
       if (editForm.password?.trim()) {
         payload.password = editForm.password.trim();
       }
       await updateUser(editForm.id, payload);
 
-      const original = users.find((u) => u.id === editForm.id);
-      if (original && !!original.is_active !== !!editForm.is_active) {
-        await toggleUserStatus(editForm.id);
-      }
       setEditing(null);
       toast.current?.show({
         severity: "success",
@@ -202,28 +197,6 @@ export default function DriversManagement() {
     }
   };
 
-  const handleRestore = async (row) => {
-    setIsSubmitting(true);
-    try {
-      await restoreUser(row.id);
-      toast.current?.show({
-        severity: "success",
-        summary: "Restaurado",
-        detail: "Conductor restaurado correctamente",
-      });
-      await loadData();
-    } catch (err) {
-      console.error(err);
-      toast.current?.show({
-        severity: "error",
-        summary: "Error",
-        detail:
-          err.response?.data?.error || "No se pudo restaurar al conductor",
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   const handleCreate = () => {
     setCreating(true);
@@ -258,6 +231,7 @@ export default function DriversManagement() {
         name: createForm.name.trim(),
         email: createForm.email.trim(),
         password: createForm.password.trim(),
+        is_active: createForm.is_active,
       });
 
       setCreating(false);

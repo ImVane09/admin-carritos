@@ -1,4 +1,3 @@
-import React from 'react';
 import { Dialog } from 'primereact/dialog';
 import { Button } from 'primereact/button';
 import { InputText } from 'primereact/inputtext';
@@ -360,7 +359,7 @@ export default function DriverModals({
               fontFamily: "'Outfit', sans-serif",
             }}
           >
-            ¿Confirmar suspensión?
+            ¿Confirmar eliminación?
           </h3>
 
           <p
@@ -372,9 +371,8 @@ export default function DriverModals({
               fontFamily: "'Outfit', sans-serif",
             }}
           >
-            ¿Está seguro que desea suspender a este conductor? Podrá
-            restaurarlo o volver a activarlo en cualquier momento más
-            adelante.
+            ¿Está seguro que desea eliminar a este conductor? El registro se
+            conservará como historial y la acción será definitiva.
           </p>
 
           <div style={{ display: "flex", gap: "0.75rem", width: "100%" }}>
@@ -385,7 +383,7 @@ export default function DriverModals({
               style={{ flex: 1, borderRadius: "8px" }}
             />
             <Button
-              label="Suspender"
+              label="Eliminar"
               onClick={confirmDelete}
               loading={isSubmitting}
               style={{

@@ -1,12 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from 'primereact/button';
-import { Card } from 'primereact/card';
 import CustomDataTable from '../components/ui/CustomDataTable';
 import { Dialog } from 'primereact/dialog';
-import { InputText } from 'primereact/inputtext';
 import { Tag } from 'primereact/tag';
-import { ProgressSpinner } from 'primereact/progressspinner';
 import { fetchUsers } from '../services/adminService';
 
 export default function UsersPage() {

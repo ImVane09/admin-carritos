@@ -20,6 +20,7 @@ const AssignmentsManagement = lazy(() => import('./pages/management/AssignmentsM
 const ComplaintsManagement = lazy(() => import('./pages/management/ComplaintsManagement'));
 const EventsManagement = lazy(() => import('./pages/management/EventsManagement'));
 const DisconnectsManagement = lazy(() => import('./pages/management/DisconnectsManagement'));
+const AuditLogsManagement = lazy(() => import('./pages/management/AuditLogsManagement'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const DriverReport = lazy(() => import('./pages/reports/DriverReport'));
 const RouteReport = lazy(() => import('./pages/reports/RouteReport'));
@@ -159,6 +160,11 @@ function App() {
               <Route path="management/disconnects" element={
                 <PermissionRoute permission="manage_disconnects">
                   <DisconnectsManagement />
+                </PermissionRoute>
+              } />
+              <Route path="management/audit-logs" element={
+                <PermissionRoute permission="view_audit_log">
+                  <AuditLogsManagement />
                 </PermissionRoute>
               } />
             </Route>

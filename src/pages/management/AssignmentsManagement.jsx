@@ -2,15 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import ManagementPageHeader from "../../components/management/ManagementPageHeader";
 import { DetailModal, DetailField } from "../../components/ui/DetailModal";
 import { Button } from 'primereact/button';
-import { Card } from 'primereact/card';
-import { Column } from 'primereact/column';
 import { Dialog } from 'primereact/dialog';
 import CustomDataTable from "../../components/ui/CustomDataTable";
 import { Dropdown } from 'primereact/dropdown';
 import { Toast } from 'primereact/toast';
 import { fetchAssignments, createAssignment, updateAssignment, deleteAssignment, fetchUsers, fetchVehicles, fetchShifts } from '../../services/adminService';
 import { InputSwitch } from 'primereact/inputswitch';
-import { Skeleton } from 'primereact/skeleton';
 import StatCardPremium from '../../components/StatCardPremium';
 
 const EMPTY_FORM = { id: null, user_id: null, vehicle_id: null, shift_id: null, is_active: true };
@@ -18,7 +15,6 @@ const EMPTY_FORM = { id: null, user_id: null, vehicle_id: null, shift_id: null, 
 export default function AssignmentsManagement() {
   const toast = useRef(null);
   
-  const [profiles, setProfiles] = useState([]);
   const [driversState, setDriversState] = useState({ items: [], total: 0, loading: false, page: 1 });
   const [vehiclesState, setVehiclesState] = useState({ items: [], total: 0, loading: false, page: 1 });
   const [shiftsState, setShiftsState] = useState({ items: [], total: 0, loading: false, page: 1 });
@@ -85,7 +81,7 @@ export default function AssignmentsManagement() {
         page: pageToLoad,
         loading: false
       }));
-    } catch (e) {
+    } catch {
       setDriversState(prev => ({ ...prev, loading: false }));
     }
   };
@@ -104,7 +100,7 @@ export default function AssignmentsManagement() {
         page: pageToLoad,
         loading: false
       }));
-    } catch (e) {
+    } catch {
       setVehiclesState(prev => ({ ...prev, loading: false }));
     }
   };
@@ -123,7 +119,7 @@ export default function AssignmentsManagement() {
         page: pageToLoad,
         loading: false
       }));
-    } catch (e) {
+    } catch {
       setShiftsState(prev => ({ ...prev, loading: false }));
     }
   };
