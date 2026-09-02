@@ -15,7 +15,7 @@ const menu = [
   { to: '/reports/drivers', label: 'Conductores', icon: 'pi pi-car', permission: 'view_driver_reports', nested: true },
   { to: '/reports/routes', label: 'Rutas', icon: 'pi pi-map', permission: 'view_route_reports', nested: true },
   { to: '/reports/passengers', label: 'Pasajeros', icon: 'pi pi-users', permission: 'view_passenger_reports', nested: true },
-  { section: 'Gestión General', collapsible: true, permission: ['manage_users', 'manage_admins', 'manage_vehicles', 'manage_destinations', 'view_history', 'manage_shifts', 'manage_assignments', 'manage_events', 'manage_disconnects'] },
+  { section: 'Gestión General', collapsible: true, permission: ['manage_users', 'manage_admins', 'manage_vehicles', 'manage_destinations', 'view_history', 'manage_shifts', 'manage_assignments', 'manage_events', 'manage_disconnects', 'view_audit_log'] },
   { to: '/management/admins', label: 'Administradores', icon: 'pi pi-shield', nested: true, permission: 'manage_admins' },
   { to: '/management/drivers', label: 'Conductores', icon: 'pi pi-car', nested: true, permission: 'manage_users' },
   { to: '/management/passengers', label: 'Pasajeros', icon: 'pi pi-users', nested: true, permission: 'manage_users' },
@@ -27,6 +27,7 @@ const menu = [
   { to: '/management/disconnects', label: 'Desconexiones', icon: 'pi pi-power-off', nested: true, permission: 'manage_disconnects' },
   { to: '/management/complaints', label: 'Quejas', icon: 'pi pi-exclamation-circle', nested: true, permission: 'view_passenger_reports' },
   { to: '/management/trips', label: 'Historial de Viajes', icon: 'pi pi-history', nested: true, permission: 'view_history' },
+  { to: '/management/audit-logs', label: 'Auditoría', icon: 'pi pi-list', nested: true, permission: 'view_audit_log' },
 ];
 
 export default function AdminLayout() {
@@ -65,6 +66,7 @@ export default function AdminLayout() {
 
   useEffect(() => {
     if (!user) return;
+    if (user.id !== 1 && !user.permissions?.includes('manage_disconnects')) return;
 
     const token = user.token || localStorage.getItem('admin_token');
     if (!token) return;

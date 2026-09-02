@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { loginRequest, meRequest } from '../services/authService';
+import { loginRequest, meRequest, refreshRequest } from '../services/authService';
 
 const AuthContext = createContext(null);
 
@@ -27,6 +27,15 @@ function getErrorMessage(error) {
     error?.message ||
     'Error de autenticacion'
   );
+}
+
+function getTokenExpiration(token) {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.exp ? payload.exp * 1000 : null;
+  } catch {
+    return null;
+  }
 }
 
 export function AuthProvider({ children }) {
@@ -89,6 +98,32 @@ export function AuthProvider({ children }) {
 
     bootstrap();
   }, []);
+
+  useEffect(() => {
+    if (!user) return undefined;
+
+    const refreshIfNeeded = async () => {
+      const token = localStorage.getItem('admin_token');
+      const expiration = token && getTokenExpiration(token);
+      if (!expiration || expiration - Date.now() > 10 * 60 * 1000) return;
+
+      try {
+        const normalized = normalizeAuthPayload(await refreshRequest(), token);
+        setUser(normalized.user);
+        localStorage.setItem('admin_token', normalized.token);
+        localStorage.setItem('admin_user', JSON.stringify(normalized.user));
+      } catch (error) {
+        if (error?.response?.status === 401) {
+          clearStoredSession();
+          setUser(null);
+        }
+      }
+    };
+
+    const interval = window.setInterval(refreshIfNeeded, 60 * 1000);
+    refreshIfNeeded();
+    return () => window.clearInterval(interval);
+  }, [user]);
 
   const login = async (email, password) => {
     try {

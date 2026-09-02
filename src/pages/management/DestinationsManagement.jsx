@@ -20,33 +20,6 @@ import { fetchDestinations, createDestination, updateDestination, deleteDestinat
 
 const DEFAULT_CENTER = [-0.9525, -80.7450];
 
-const LOCAL_DESTINATIONS = [
-  {
-    id: 1,
-    name: 'Puerta Uno',
-    description: 'Acceso principal norte del campus',
-    latitude: -0.9521,
-    longitude: -80.7454,
-    is_default: true,
-  },
-  {
-    id: 2,
-    name: 'Puerta Dos',
-    description: 'Acceso principal sur del campus',
-    latitude: -0.9529,
-    longitude: -80.7447,
-    is_default: true,
-  },
-  {
-    id: 3,
-    name: 'Centro de Servicio',
-    description: 'Punto de espera y coordinación',
-    latitude: -0.9525,
-    longitude: -80.7450,
-    is_default: true,
-  },
-];
-
 const EMPTY_FORM = {
   id: null,
   name: '',
@@ -75,7 +48,7 @@ function formatCoordinate(value) {
 
 export default function DestinationsManagement() {
   const toast = useRef(null);
-  const [destinations, setDestinations] = useState(LOCAL_DESTINATIONS);
+  const [destinations, setDestinations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState(null);

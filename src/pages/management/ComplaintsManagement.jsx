@@ -1,5 +1,4 @@
 import { useEffect, useState, useRef } from 'react';
-import { Card } from 'primereact/card';
 import CustomDataTable from "../../components/ui/CustomDataTable";
 import ManagementPageHeader from "../../components/management/ManagementPageHeader";
 import { Button } from 'primereact/button';
@@ -57,18 +56,6 @@ export default function ComplaintsManagement() {
     }
   };
 
-  const handleStatusChange = async (id, newStatus) => {
-    try {
-      await updateComplaintStatus(id, newStatus);
-      toast.current?.show({ severity: 'success', summary: 'Éxito', detail: 'Estado actualizado' });
-      // Actualizar localmente sin recargar todo
-      setComplaints(complaints.map(c => c.id === id ? { ...c, status: newStatus } : c));
-    } catch (err) {
-      console.error(err);
-      toast.current?.show({ severity: 'error', summary: 'Error', detail: 'No se pudo actualizar el estado' });
-    }
-  };
-
   const handleSaveStatus = async () => {
     if (!selectedComplaint) return;
     setIsSubmitting(true);
@@ -95,20 +82,16 @@ export default function ComplaintsManagement() {
   const statusBodyTemplate = (rowData) => {
     let badgeClass = 'status-badge ';
     let label = 'Desconocido';
-    let icon = 'pi pi-question-circle';
 
     if (rowData.status === 'pending') {
       badgeClass += 'status-warning';
       label = 'Pendiente';
-      icon = 'pi pi-clock';
     } else if (rowData.status === 'resolved') {
       badgeClass += 'status-activo';
       label = 'Resuelta';
-      icon = 'pi pi-check-circle';
     } else if (rowData.status === 'dismissed') {
       badgeClass += 'status-danger';
       label = 'Desestimada';
-      icon = 'pi pi-times-circle';
     }
 
     return (

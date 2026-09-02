@@ -11,6 +11,7 @@ import {
 } from "../services/adminService";
 import DashboardLiveMap from "../components/DashboardLiveMap";
 import { createEcho } from "../services/echoService";
+import { useAuth } from "../context/AuthContext";
 
 const CAMPUS_CENTER = [-0.9525, -80.745];
 
@@ -18,6 +19,7 @@ import DashboardStatsGrid from "../components/dashboard/DashboardStatsGrid";
 import DashboardSidePanel from "../components/dashboard/DashboardSidePanel";
 
 export default function DashboardPage() {
+  const { user } = useAuth();
   const [statsLoading, setStatsLoading] = useState(true);
   const [stats, setStats] = useState({
     users: 0,
@@ -247,20 +249,22 @@ export default function DashboardPage() {
         );
       }
 
-      try {
-        const adminChannel = echoInstance.private("admin.notifications");
-        adminChannel.listen(".driver.disconnect.requested", (event) => {
-          setDisconnectRequests((prev) => [
-            ...prev,
-            {
-              driverId: event.driverId,
-              driverName: event.driverName,
-              reason: event.reason,
-            },
-          ]);
-        });
-      } catch (wsError) {
-        console.error("Error al inicializar notificaciones de admin:", wsError);
+      if (user?.id === 1 || user?.permissions?.includes('manage_disconnects')) {
+        try {
+          const notificationChannel = echoInstance.private("admin.notifications");
+          notificationChannel.listen(".driver.disconnect.requested", (event) => {
+            setDisconnectRequests((prev) => [
+              ...prev,
+              {
+                driverId: event.driverId,
+                driverName: event.driverName,
+                reason: event.reason,
+              },
+            ]);
+          });
+        } catch (wsError) {
+          console.error("Error al inicializar notificaciones de admin:", wsError);
+        }
       }
     }
 
@@ -270,7 +274,7 @@ export default function DashboardPage() {
         echoInstance.disconnect();
       }
     };
-  }, []);
+  }, [user]);
 
   const totalCancellations = useMemo(
     () =>

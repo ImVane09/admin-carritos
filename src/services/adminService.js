@@ -6,6 +6,11 @@ export async function fetchUsers(params = {}) {
   return data;
 }
 
+export async function fetchAdmins(params = {}) {
+  const { data } = await api.get('/users/admins', { params });
+  return data;
+}
+
 export async function fetchTrips(params = {}) {
   const { data } = await api.get('/trips', { params });
   return data;
@@ -32,7 +37,7 @@ export async function fetchDisconnectRequests(params = {}) {
 }
 
 export async function fetchAllDrivers() {
-  const { data } = await api.get('/users', { params: { role_name: 'conductor' } }); // Assuming your API supports this
+  const { data } = await api.get('/dashboard/drivers');
   return data?.data || data || [];
 }
 
@@ -82,11 +87,10 @@ export async function createUserAdmin(payload) {
 }
 
 /**
- * Registra un nuevo pasajero llamando a la ruta de registro público con role_id 2
- * Requiere name, email, password, password_confirmation, role_id en payload
+ * Registra un nuevo pasajero desde el endpoint administrativo protegido.
  */
 export async function registerPassenger(payload) {
-  const { data } = await api.post('/register', payload);
+  const { data } = await api.post('/users/passengers', payload);
   return data;
 }
 
@@ -107,19 +111,31 @@ export async function toggleUserStatus(id) {
   return data;
 }
 
-/**
- * Elimina o suspende un usuario de la base de datos
- */
-export async function deleteUser(id) {
-  const { data } = await api.delete(`/users/${id}`);
+export async function updateAdmin(id, payload) {
+  const { data } = await api.put(`/users/admins/${id}`, payload);
   return data;
 }
 
+export async function toggleAdminStatus(id) {
+  const { data } = await api.patch(`/users/admins/${id}/toggle-status`);
+  return data;
+}
+
+export async function deleteAdmin(id) {
+  const { data } = await api.delete(`/users/admins/${id}`);
+  return data;
+}
+
+export async function fetchPermissions() {
+  const { data } = await api.get('/permissions');
+  return Array.isArray(data) ? data : data?.data || [];
+}
+
 /**
- * Restaura o reactiva un usuario suspendido (soft-deleted) en la base de datos
+ * Elimina un usuario y conserva su registro histórico.
  */
-export async function restoreUser(id) {
-  const { data } = await api.post(`/users/${id}/restore`);
+export async function deleteUser(id) {
+  const { data } = await api.delete(`/users/${id}`);
   return data;
 }
 
@@ -156,14 +172,6 @@ export async function deleteDestination(id) {
  */
 export async function toggleDestinationStatus(id) {
   const { data } = await api.patch(`/destinations/${id}/toggle-status`);
-  return data;
-}
-
-/**
- * Restaura o reactiva un destino suspendido (soft-deleted) en la base de datos
- */
-export async function restoreDestination(id) {
-  const { data } = await api.post(`/destinations/${id}/restore`);
   return data;
 }
 
@@ -351,6 +359,11 @@ export async function fetchComplaints(params = {}) {
 
 export async function updateComplaintStatus(id, status) {
   const { data } = await api.patch(`/complaints/${id}/status`, { status });
+  return data;
+}
+
+export async function fetchAuditLogs(params = {}) {
+  const { data } = await api.get('/audit-logs', { params });
   return data;
 }
 

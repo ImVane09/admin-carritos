@@ -1,9 +1,7 @@
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import ManagementPageHeader from "../../components/management/ManagementPageHeader";
 import { DetailModal, DetailField } from "../../components/ui/DetailModal";
 import { Button } from "primereact/button";
-import { Card } from "primereact/card";
-import { Column } from "primereact/column";
 import { Dialog } from "primereact/dialog";
 import { InputText } from "primereact/inputtext";
 import { InputSwitch } from "primereact/inputswitch";
@@ -11,33 +9,32 @@ import { Dropdown } from "primereact/dropdown";
 import { Toast } from "primereact/toast";
 import { Checkbox } from "primereact/checkbox";
 import {
-  fetchUsers,
+  fetchAdmins,
   createUserAdmin,
-  updateUser,
-  deleteUser,
-  toggleUserStatus,
-  restoreUser,
+  updateAdmin,
+  deleteAdmin,
+  fetchPermissions,
 } from "../../services/adminService";
-import { ProgressSpinner } from "primereact/progressspinner";
 import StatCardPremium from "../../components/StatCardPremium";
 import CustomDataTable from "../../components/ui/CustomDataTable";
 import ManagementActionButtons from "../../components/management/ManagementActionButtons";
 
-const PERMISSIONS_LIST = [
-  { id: 1, name: "view_dashboard", label: "Ver Dashboard" },
-  { id: 2, name: "view_driver_reports", label: "Ver Reportes de Conductores" },
-  { id: 3, name: "view_route_reports", label: "Ver Reportes de Rutas" },
-  { id: 4, name: "view_passenger_reports", label: "Ver Reportes de Pasajeros" },
-  { id: 5, name: "manage_users", label: "Gestionar Usuarios" },
-  { id: 6, name: "manage_admins", label: "Gestionar Administradores" },
-  { id: 7, name: "manage_vehicles", label: "Gestionar Vehículos" },
-  { id: 8, name: "manage_destinations", label: "Gestionar Destinos" },
-  { id: 9, name: "view_history", label: "Ver Historial de Viajes" },
-  { id: 10, name: "manage_shifts", label: "Gestionar Horarios" },
-  { id: 11, name: "manage_assignments", label: "Gestionar Asignaciones" },
-  { id: 12, name: "manage_events", label: "Gestionar Eventos" },
-  { id: 13, name: "manage_disconnects", label: "Gestionar Desconexiones" },
-];
+const PERMISSION_LABELS = {
+  view_dashboard: "Ver Dashboard",
+  view_driver_reports: "Ver Reportes de Conductores",
+  view_route_reports: "Ver Reportes de Rutas",
+  view_passenger_reports: "Ver Reportes de Pasajeros",
+  manage_users: "Gestionar Usuarios",
+  manage_admins: "Gestionar Administradores",
+  manage_vehicles: "Gestionar Vehículos",
+  manage_destinations: "Gestionar Destinos",
+  view_history: "Ver Historial de Viajes",
+  manage_shifts: "Gestionar Horarios",
+  manage_assignments: "Gestionar Asignaciones",
+  manage_events: "Gestionar Eventos",
+  manage_disconnects: "Gestionar Desconexiones",
+  view_audit_log: "Ver Auditoría",
+};
 
 export default function AdminsManagement() {
   const toast = useRef(null);
@@ -74,6 +71,7 @@ export default function AdminsManagement() {
   const [page, setPage] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
   const [globalStats, setGlobalStats] = useState({ inactive: 0, deleted: 0 });
+  const [permissionsList, setPermissionsList] = useState([]);
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -88,11 +86,10 @@ export default function AdminsManagement() {
   const loadData = async (pageNumber = page) => {
     setLoading(true);
     try {
-      const result = await fetchUsers({
+      const result = await fetchAdmins({
         per_page: 10,
         page: pageNumber,
         search: debouncedQuery,
-        role_id: 1,
         status: statusFilter,
       });
       setUsers(result?.data || []);
@@ -123,6 +120,10 @@ export default function AdminsManagement() {
     loadData(page);
   }, [page, debouncedQuery, statusFilter]);
 
+  useEffect(() => {
+    fetchPermissions().then(setPermissionsList).catch(() => setPermissionsList([]));
+  }, []);
+
   const statusBody = (row) => {
     if (row.deleted_at) {
       return (
@@ -143,13 +144,24 @@ export default function AdminsManagement() {
     );
   };
 
-  const handleEdit = (row) => {
+  const handleEdit = async (row) => {
+    let availablePermissions = permissionsList;
+    if (availablePermissions.length === 0) {
+      try {
+        availablePermissions = await fetchPermissions();
+        setPermissionsList(availablePermissions);
+      } catch {
+        availablePermissions = [];
+      }
+    }
+
     setEditing(row.id);
     const userPerms = row.permissions || [];
-    // Convert names to IDs
-    const permIds = PERMISSIONS_LIST.filter((p) =>
-      userPerms.includes(p.name),
-    ).map((p) => p.id);
+    const permIds = userPerms.map((permission) => {
+      if (typeof permission === "object") return permission.id;
+      if (typeof permission === "number") return permission;
+      return availablePermissions.find((item) => item.name === permission)?.id;
+    }).filter(Boolean);
     setEditForm({ ...row, password: "", permissions: permIds });
   };
 
@@ -168,17 +180,14 @@ export default function AdminsManagement() {
       const payload = {
         name: editForm.name,
         email: editForm.email,
+        is_active: editForm.is_active,
         permissions: editForm.permissions || [],
       };
       if (editForm.password?.trim()) {
         payload.password = editForm.password.trim();
       }
-      await updateUser(editForm.id, payload);
+      await updateAdmin(editForm.id, payload);
 
-      const original = users.find((u) => u.id === editForm.id);
-      if (original && !!original.is_active !== !!editForm.is_active) {
-        await toggleUserStatus(editForm.id);
-      }
 
       setEditing(null);
       toast.current?.show({
@@ -206,7 +215,7 @@ export default function AdminsManagement() {
   const confirmDelete = async () => {
     setIsSubmitting(true);
     try {
-      await deleteUser(deleteConfirm);
+      await deleteAdmin(deleteConfirm);
       setDeleteConfirm(null);
       toast.current?.show({
         severity: "success",
@@ -221,29 +230,6 @@ export default function AdminsManagement() {
         summary: "Error",
         detail:
           err.response?.data?.error || "No se pudo eliminar al administrador",
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleRestore = async (row) => {
-    setIsSubmitting(true);
-    try {
-      await restoreUser(row.id);
-      toast.current?.show({
-        severity: "success",
-        summary: "Restaurado",
-        detail: "Administrador restaurado correctamente",
-      });
-      await loadData();
-    } catch (err) {
-      console.error(err);
-      toast.current?.show({
-        severity: "error",
-        summary: "Error",
-        detail:
-          err.response?.data?.error || "No se pudo restaurar al administrador",
       });
     } finally {
       setIsSubmitting(false);
@@ -422,6 +408,25 @@ export default function AdminsManagement() {
                   year: "numeric",
                 })}
               </DetailField>
+              <DetailField icon="pi pi-list" label="Permisos Especiales">
+                {selected.permissions?.length ? (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem", justifyContent: "flex-end" }}>
+                    {selected.permissions.map((permission) => {
+                      const name = typeof permission === "object" ? permission.name : permission;
+                      return (
+                        <span
+                          key={name}
+                          style={{ background: "#e8f1ff", color: "#1d4ed8", borderRadius: "999px", padding: "0.3rem 0.6rem", fontSize: "0.75rem", fontWeight: 600 }}
+                        >
+                          {PERMISSION_LABELS[name] || name}
+                        </span>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <span style={{ color: "#64748b" }}>Sin permisos especiales</span>
+                )}
+              </DetailField>
             </>
           )}
         </DetailModal>
@@ -502,7 +507,7 @@ export default function AdminsManagement() {
                   Permisos Especiales
                 </label>
                 <div className="flex flex-column gap-2">
-                  {PERMISSIONS_LIST.map((permission) => (
+                  {permissionsList.map((permission) => (
                     <div
                       key={permission.id}
                       style={{ display: "flex", alignItems: "center" }}
@@ -524,7 +529,7 @@ export default function AdminsManagement() {
                           cursor: "pointer",
                         }}
                       >
-                        {permission.label}
+                        {PERMISSION_LABELS[permission.name] || permission.name}
                       </label>
                     </div>
                   ))}
@@ -590,7 +595,7 @@ export default function AdminsManagement() {
                 fontFamily: "'Outfit', sans-serif",
               }}
             >
-              ¿Confirmar suspensión?
+              ¿Confirmar eliminación?
             </h3>
 
             <p
@@ -602,9 +607,8 @@ export default function AdminsManagement() {
                 fontFamily: "'Outfit', sans-serif",
               }}
             >
-              ¿Está seguro que desea suspender a este administrador? Podrá
-              restaurarlo o volver a activarlo en cualquier momento más
-              adelante.
+              ¿Está seguro que desea eliminar a este administrador? El registro
+              se conservará como historial y la acción será definitiva.
             </p>
 
             <div style={{ display: "flex", gap: "0.75rem", width: "100%" }}>
@@ -615,7 +619,7 @@ export default function AdminsManagement() {
                 style={{ flex: 1, borderRadius: "8px" }}
               />
               <Button
-                label="Suspender"
+                label="Eliminar"
                 onClick={confirmDelete}
                 loading={isSubmitting}
                 style={{
@@ -697,7 +701,7 @@ export default function AdminsManagement() {
                 Permisos Especiales
               </label>
               <div className="flex flex-column gap-2">
-                {PERMISSIONS_LIST.map((permission) => (
+                {permissionsList.map((permission) => (
                   <div
                     key={permission.id}
                     style={{ display: "flex", alignItems: "center" }}
@@ -719,7 +723,7 @@ export default function AdminsManagement() {
                         cursor: "pointer",
                       }}
                     >
-                      {permission.label}
+                        {PERMISSION_LABELS[permission.name] || permission.name}
                     </label>
                   </div>
                 ))}

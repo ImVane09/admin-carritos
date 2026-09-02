@@ -10,6 +10,11 @@ export async function meRequest() {
   return response.data;
 }
 
+export async function refreshRequest() {
+  const response = await api.post('/refresh');
+  return response.data;
+}
+
 export function getRole(user) {
   return (
     user?.role ||
